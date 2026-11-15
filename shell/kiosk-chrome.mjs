@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Launch the kiosk Chrome and put offline voice into every page before the page's own scripts.
+// Launch the kiosk browser (Chromium, or Google Chrome if installed) and put offline voice into every page before the page's own scripts.
 //
 //   kiosk-chrome.mjs <url>
 //
@@ -16,7 +16,12 @@ import fs from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const url = process.argv[2] || "http://127.0.0.1:4310/";
-const CHROME = process.env.SPECK_CHROME || "/usr/bin/google-chrome-stable";
+/** The kiosk browser: Chromium, or Google Chrome on a box provisioned with BROWSER=chrome. */
+export function findBrowser(exists = fs.existsSync, env = process.env) {
+  if (env.SPECK_CHROME) return env.SPECK_CHROME;
+  return ["/usr/bin/chromium", "/usr/bin/google-chrome-stable"].find((path) => exists(path)) ?? "/usr/bin/chromium";
+}
+const CHROME = findBrowser();
 const KIOSK_FLAGS = [
   "--ozone-platform=wayland", "--kiosk", "--no-first-run", "--noerrdialogs", "--disable-session-crashed-bubble",
   "--disable-infobars", "--password-store=basic", "--autoplay-policy=no-user-gesture-required",

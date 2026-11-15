@@ -1,9 +1,9 @@
 #!/bin/sh
-# Runs inside cage as speck-ui. Keeps exactly one full-screen Chrome showing first-boot setup
+# Runs inside cage as speck-ui. Keeps exactly one full-screen browser showing first-boot setup
 # (until it's done; on the USB installer, always), Speck (when healthy) or the recovery console
 # (when Speck is down), and switches between them.
-# Chrome (not Chromium) keeps Chrome's own speech available as a fallback; offline speech is
-# injected by kiosk-chrome.mjs (speck-voice). See docs/ARCHITECTURE.md §5.
+# The browser is Chromium (Google Chrome on boxes provisioned with BROWSER=chrome); offline speech
+# is injected by kiosk-chrome.mjs (speck-voice). See docs/ARCHITECTURE.md §5.
 SPECK_URL="${SPECK_UI_URL:-http://127.0.0.1:4310/}"
 RECOVERY_URL="${SPECK_RECOVERY_URL:-http://127.0.0.1:4399/}"
 SETUP_URL="${RECOVERY_URL%/}/setup"

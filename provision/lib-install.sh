@@ -23,14 +23,48 @@ inst_node() {  # Node.js 22 from NodeSource
   apt-get install -y nodejs
 }
 
-inst_chrome() {  # Google Chrome (not Chromium: Chrome's own speech stays available as a fallback)
-  if [ ! -f /usr/share/keyrings/google-chrome.gpg ]; then
-    curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+XTRADEB_KEY=5301FA4FD93244FBC6F6149982BB6851C64F6880
+
+inst_browser() {  # the kiosk browser. BROWSER=chromium (default) | chrome
+  # Chromium as a .deb: Ubuntu 24.04 only ships it as a snap, which doesn't suit an image.
+  # It comes from the xtradeb PPA, built for 24.04. The pin limits that PPA to the Chromium
+  # packages, so it can never replace anything else on the box.
+  #
+  # BROWSER=chrome installs Google Chrome instead, which adds Google's online speech
+  # recognition as a fallback. Google's terms don't allow redistributing Chrome, so only use
+  # it on a box you provision for yourself, never in an image you publish.
+  if [ "${BROWSER:-chromium}" = chrome ]; then
+    if [ ! -f /usr/share/keyrings/google-chrome.gpg ]; then
+      curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
+    fi
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list
+    apt-get update
+    apt-get install -y google-chrome-stable
+    return
   fi
-  echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-    > /etc/apt/sources.list.d/google-chrome.list
+  if [ ! -f /usr/share/keyrings/xtradeb.gpg ]; then
+    curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$XTRADEB_KEY" | gpg --dearmor -o /usr/share/keyrings/xtradeb.gpg
+    gpg --show-keys --with-colons /usr/share/keyrings/xtradeb.gpg | grep -q "^fpr:*$XTRADEB_KEY:" \
+      || { echo "xtradeb key fingerprint mismatch" >&2; rm -f /usr/share/keyrings/xtradeb.gpg; return 1; }
+  fi
+  echo "deb [signed-by=/usr/share/keyrings/xtradeb.gpg] https://ppa.launchpadcontent.net/xtradeb/apps/ubuntu noble main" \
+    > /etc/apt/sources.list.d/xtradeb.list
+  cat > /etc/apt/preferences.d/xtradeb-chromium <<'EOF'
+Package: *
+Pin: release o=LP-PPA-xtradeb-apps
+Pin-Priority: 1
+
+Package: chromium chromium-common chromium-sandbox chromium-l10n chromium-driver
+Pin: release o=LP-PPA-xtradeb-apps
+Pin-Priority: 700
+EOF
   apt-get update
-  apt-get install -y google-chrome-stable
+  apt-get install -y --no-install-recommends chromium
+}
+
+browser_version() {
+  chromium --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || echo none
 }
 
 inst_users() {
@@ -89,10 +123,13 @@ inst_runtime_units() {  # Speck + workers (+ kiosk session when KIOSK=1)
   if [ "${KIOSK:-1}" = 1 ]; then
     install -m 0644 "$REPO/system/systemd/speck-kiosk.service" /etc/systemd/system/
     install -m 0644 "$REPO/system/pam.d/speck-kiosk" /etc/pam.d/speck-kiosk
-    install -d /etc/opt/chrome/policies/managed
     install -m 0755 "$REPO/shell/kiosk-launch.sh" /usr/lib/speck-os/kiosk-launch.sh
     install -m 0755 "$REPO/shell/kiosk-chrome.mjs" /usr/lib/speck-os/kiosk-chrome.mjs
-    install -m 0644 "$REPO/system/chrome/speck-os.json" /etc/opt/chrome/policies/managed/speck-os.json
+    # Same policy for either browser: Chromium reads /etc/chromium, Google Chrome /etc/opt/chrome.
+    for dir in /etc/chromium/policies/managed /etc/opt/chrome/policies/managed; do
+      install -d "$dir"
+      install -m 0644 "$REPO/system/chrome/speck-os.json" "$dir/speck-os.json"
+    done
   fi
 }
 

@@ -9,6 +9,7 @@
 #   LLAMA_BACKEND=cpu|vulkan   (default cpu; the 6950H/680M will use vulkan)
 #   LLAMA_REF=<git ref>        (default master; the commit actually built is recorded)
 #   SKIP_KIOSK=1               (headless: Speck + workers only)
+#   BROWSER=chrome             (Google Chrome instead of Chromium; adds its online speech. Your own box only.)
 set -euo pipefail
 
 [ "$(id -u)" = 0 ] || { echo "run as root (sudo)"; exit 1; }
@@ -28,7 +29,7 @@ step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 step "Packages"
 inst_packages
 inst_node
-[ "$KIOSK" = 1 ] && inst_chrome
+[ "$KIOSK" = 1 ] && inst_browser
 
 step "Users"
 inst_users
@@ -62,7 +63,7 @@ speck-os phase0 provisioned $(date -u +%Y-%m-%dT%H:%M:%SZ)
 $SPECK_VERSION
 llama.cpp $LLAMA_COMMIT ($LLAMA_BACKEND)
 node $(node --version)
-chrome $(google-chrome-stable --version 2>/dev/null || echo none)
+browser $(browser_version)
 EOF
 
 if [ "$KIOSK" = 1 ]; then

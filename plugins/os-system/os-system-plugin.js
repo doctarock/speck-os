@@ -8,6 +8,7 @@
  */
 
 import http from "node:http";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 
 const SOCKET = process.env.SPECK_BROKER_SOCKET || "/run/speck-broker/broker.sock";
@@ -65,7 +66,7 @@ const TOOLS = [
     parameters: { type: "object", properties: {} } },
   { name: "os_hardware_reconcile", risk: "high", description: "Set up the hardware again in the background: install a driver for a newly attached eGPU, build llama.cpp for it, choose the largest model its VRAM fits, start its worker and register it as a higher Speck tier, or retire it if it's gone. This runs automatically at boot; call it after changing /etc/speck-os/hwd.json or the eGPU worker's settings, or after fixing a failed driver. It never reboots: if a driver needs one, os_hardware says so and you decide when (os_power). Check progress with os_hardware.",
     parameters: { type: "object", properties: {} } },
-  { name: "os_voice", description: "Show or change where speech is processed. 'local' recognises and speaks entirely on this machine (offline, private); 'chrome' uses Google Chrome's own speech (needs the internet for recognition). For speech output, 'both' lists Chrome's voices next to the local ones. With no arguments it shows the current settings and whether the local speech service is healthy. A change reloads the screen about 8 seconds later, so say what you're doing first. The user picks the voice itself in System → Voice.",
+  { name: "os_voice", description: "Show or change where speech is processed. 'local' recognises and speaks entirely on this machine (offline, private). 'chrome' uses the browser's own speech: recognition that way needs Google Chrome and the internet, and the kiosk normally runs Chromium, which can't do it (the status says which browser is installed). For speech output, 'both' lists the browser's voices next to the local ones. With no arguments it shows the current settings and whether the local speech service is healthy. A change reloads the screen about 8 seconds later, so say what you're doing first. The user picks the voice itself in System → Voice.",
     parameters: { type: "object", properties: {
       recognition: { type: "string", enum: ["local", "chrome"], description: "Speech recognition engine" },
       speech: { type: "string", enum: ["local", "chrome", "both"], description: "Speech output voices" }
@@ -94,6 +95,9 @@ function call(method, path, body) {
 }
 
 const VOICE_CONFIG = process.env.SPECK_VOICE_CONFIG || "/etc/speck-os/voice.json";
+const GOOGLE_CHROME = process.env.SPECK_GOOGLE_CHROME || "/usr/bin/google-chrome-stable";
+/** Chromium has no Google speech service, so browser recognition only works in Google Chrome. */
+const kioskBrowser = () => (existsSync(GOOGLE_CHROME) ? "google-chrome" : "chromium");
 
 async function voiceStatus() {
   let settings = null;
@@ -112,6 +116,8 @@ async function voiceStatus() {
     speech: settings?.browser?.tts ?? "chrome",
     sttModel: settings?.stt?.model ?? null,
     voices: settings?.tts?.models ?? [],
+    browser: kioskBrowser(),
+    browserRecognitionAvailable: kioskBrowser() === "google-chrome",
     localService: service
   };
 }
@@ -154,6 +160,9 @@ export function createOsSystemPlugin() {
     os_hardware_reconcile: async () => JSON.stringify(await call("POST", "/v1/hw/reconcile", { trigger: "agent" })),
     os_voice: async (args) => {
       const change = {};
+      if (args.recognition === "chrome" && kioskBrowser() !== "google-chrome") {
+        return JSON.stringify({ ok: false, error: "The kiosk runs Chromium, which has no online speech recognition (that needs Google Chrome). Recognition stays local.", ...(await voiceStatus()) });
+      }
       if (["local", "chrome"].includes(args.recognition)) change.stt = args.recognition;
       if (["local", "chrome", "both"].includes(args.speech)) change.tts = args.speech;
       if (Object.keys(change).length) {

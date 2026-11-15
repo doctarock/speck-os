@@ -1,5 +1,5 @@
 [Unit]
-Description=Speck OS kiosk (cage + Chrome)
+Description=Speck OS kiosk (cage + Chromium)
 After=systemd-user-sessions.service plymouth-quit-wait.service speck.service
 Wants=speck.service
 Conflicts=getty@tty1.service

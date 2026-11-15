@@ -1,6 +1,7 @@
 {
   "name": "speck-voice",
   "version": "0.1.0",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "description": "Offline speech (STT + TTS) for the Speck OS kiosk",
   "type": "module",

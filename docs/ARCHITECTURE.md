@@ -10,7 +10,7 @@ Target: a mini PC running 4B models, with an optional OCuLink eGPU added as a st
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│  Shell: Chrome --kiosk --app=http://127.0.0.1:4310  (cage)   │  only UI
+│  Shell: Chromium --kiosk --app=http://127.0.0.1:4310  (cage) │  only UI
 ├──────────────────────────────────────────────────────────────┤
 │  Speck (cognition) + Genesis (plugins, profiles, UI)         │  user: speck
 │   ├─ os-system plugin: admin, updates, hardware, voice tools │
@@ -137,9 +137,11 @@ Each processor declares its device and phase. NPU tiers use the same scheduler b
 - **Verified** (`voice/test/e2e-turn-phase.mjs`) in real Chrome on Speck's own UI, with the offline voice injected: wake word → listening (queue and background held) → submit → idle → reply spoken → speaking (background held, queue free) → idle.
 - **Not yet built:** pinning the embedder and NLI to separate cores (`CPUAffinity=`), and pausing the NLI checker mid-check.
 
-## 5. Voice (TTS/STT) and Chrome
+## 5. Voice (TTS/STT) and the browser
 
-Constraint: `webkitSpeechRecognition` works in **Google Chrome**, but not in stock Chromium builds. Chromium lacks the Google speech API keys, and Chrome's version is cloud-backed.
+**The kiosk browser is Chromium**, as a .deb from the xtradeb PPA (Ubuntu 24.04 only ships Chromium as a snap). The PPA is pinned so it can only supply the Chromium packages. Google Chrome can't be in a published image: its terms don't allow redistribution. A box you provision yourself can use it (`BROWSER=chrome`).
+
+Constraint: `webkitSpeechRecognition` only works in **Google Chrome**. Chromium lacks Google's speech API keys, and Chrome's recognition is cloud-backed. So offline voice (below) is the only recognition on a standard box; Chrome's speech is a fallback only where Google Chrome is installed.
 
 ### Budget tier hardware: Ryzen 9 PRO 6950H
 
@@ -157,7 +159,7 @@ Constraint: `webkitSpeechRecognition` works in **Google Chrome**, but not in sto
 | Component | Typical | Heavy case |
 |---|---|---|
 | OS + PipeWire + NetworkManager | 0.7 GB | 1 GB |
-| cage + Chrome kiosk | 0.8 GB | 1.5 GB |
+| cage + Chromium kiosk | 0.8 GB | 1.5 GB |
 | Speck/Genesis + SQLite + plugins | 0.5 GB | 1 GB |
 | 4B weights (Q4_K_M / Q8) | 2.5 GB | 4.3 GB |
 | KV cache 16k / 32k (fp16; q8 KV halves it) | 2.3 GB | 4.7 GB |
@@ -175,7 +177,7 @@ The limit is shared bandwidth and compute, not capacity. Rules:
 
 Speck's `voice.js` only uses the standard Web Speech API: `SpeechRecognition` / `webkitSpeechRecognition` and `speechSynthesis` / `SpeechSynthesisUtterance`. Speck OS swaps in local implementations of exactly those interfaces, so Speck's wake word, end-of-request detection and listen-after-speaking logic run **unchanged**, and there's no Speck fork.
 
-- **Injection.** `shell/kiosk-chrome.mjs` starts Chrome with `--remote-debugging-pipe`, a DevTools channel on file descriptors only the launcher holds (no port).
+- **Injection.** `shell/kiosk-chrome.mjs` starts the browser with `--remote-debugging-pipe`, a DevTools channel on file descriptors only the launcher holds (no port).
   - Over it, every page target gets `voice/page/voice-local.js` through `Page.addScriptToEvaluateOnNewDocument`. The script runs before the page's own scripts, on every load, and only for the Speck origins.
   - `Page.enable` must come first; without it the script silently doesn't apply. The end-to-end test caught this.
 - **Recognition.**
@@ -190,7 +192,7 @@ Speck's `voice.js` only uses the standard Web Speech API: `SpeechRecognition` / 
   - It is pinned to 1.13.x, because 2.0 dropped the built-in espeak-ng frontend that Piper, Kokoro and Kitten depend on.
   - Only the Speck page's origins may use it.
   - It runs at `Nice=-5` with a high `CPUWeight`: speech is what the user is waiting on.
-- **Settings** in `/etc/speck-os/voice.json`. `browser.stt` is `local | chrome`; `browser.tts` is `local | chrome | both`. Chrome's speech remains the selectable fallback. The agent changes this with `os_voice`.
+- **Settings** in `/etc/speck-os/voice.json`. `browser.stt` is `local | chrome`; `browser.tts` is `local | chrome | both`. `chrome` means the browser's own speech; recognition that way needs Google Chrome, and `os_voice` refuses it on Chromium. The agent changes this with `os_voice`.
 
 Models, measured on the dev machine (Ryzen 7 9800X3D, 2 threads; expect about 2× slower on the 6950H). Each speech model was checked by transcribing its output back:
 
@@ -231,12 +233,12 @@ Quantization was the hard part. Measured on Speck's qualification corpus (99 pai
 
 ## 6. Shell / session
 
-- `speck-kiosk.service` runs `cage` (Wayland kiosk compositor) on tty1 as `speck-ui` → `kiosk-launch.sh` → `kiosk-chrome.mjs` → Chrome `--kiosk` with offline voice injected.
-- `kiosk-launch.sh` keeps one Chrome on screen and switches it between three pages:
+- `speck-kiosk.service` runs `cage` (Wayland kiosk compositor) on tty1 as `speck-ui` → `kiosk-launch.sh` → `kiosk-chrome.mjs` → Chromium `--kiosk` with offline voice injected.
+- `kiosk-launch.sh` keeps one browser window on screen and switches it between three pages:
   - **first-boot setup** (`:4399/setup`) until it's completed; on the USB installer, always;
   - **Speck** (`:4310`) while it's healthy;
   - the **recovery console** (`:4399`) when Speck is down.
-- Chrome managed policies (`/etc/opt/chrome/policies/managed/`) lock it down: no URL bar escapes, no extensions, mic/camera allowlisted for localhost.
+- Managed policies (`/etc/chromium/policies/managed/`, and `/etc/opt/chrome/…` for Google Chrome) lock it down: no URL bar escapes, no extensions, mic/camera allowlisted for localhost.
 - Everything the user does happens in the Speck UI, including Wi-Fi, display, audio devices, updates and plugins. Each of these is an `os-*` plugin tab backed by broker ops.
 
 ## 7. Image, install and first boot (phase 5)
@@ -244,7 +246,7 @@ Quantization was the hard part. Measured on Speck's qualification corpus (99 pai
 The product ships as a USB installer image. The installer is itself a complete Speck OS, booted in a mode that shows only the Install screen. It copies itself onto the internal disk, so what gets installed is exactly what booted.
 
 **Build** (`image/build.sh`, in Docker, so it runs on Linux or Docker Desktop):
-1. **Root tree.** mkosi (pinned) builds an Ubuntu 24.04 tree: HWE kernel, firmware, signed shim and GRUB, NetworkManager, cage, Chrome.
+1. **Root tree.** mkosi (pinned) builds an Ubuntu 24.04 tree: HWE kernel, firmware, signed shim and GRUB, NetworkManager, cage, Chromium.
    - `mkosi.postinst.chroot` then runs `provision/lib-install.sh`, the same install steps `provision.sh` uses on a running box. One source of truth for what a Speck OS box contains.
    - llama.cpp is built **portable** (`LLAMA_PORTABLE=1`: every x86 CPU variant, picked at load time). A native build would carry the build machine's instructions (AVX-512 on the dev box) and crash on the 6950H.
    - The voice models are baked in. The workers' models (~5 GB) are optional (`--bake-models`); otherwise first boot downloads them.
@@ -298,10 +300,10 @@ Pitfalls the test caught, now guarded:
 ```text
 speck-os/
   image/        mkosi config, speck-install, the Docker build and installer tests
-  shell/        kiosk launcher (setup / Speck / recovery) and the Chrome + voice-injection wrapper
+  shell/        kiosk launcher (setup / Speck / recovery) and the browser + voice-injection wrapper
   broker/       speck-broker: root ops, boot guard, updater, recovery console, first-boot setup, hwd
   hwd/          GPU driver profiles and hardware capture
-  system/       systemd units, GRUB scripts, Chrome policy, infer-run.sh
+  system/       systemd units, GRUB scripts, browser policy, infer-run.sh
   provision/    lib-install.sh (shared install steps), provision.sh, phase1.sh, build-llama.sh
   plugins/      os-system (agent tools: admin, updates, hardware, voice)
   voice/        speck-voice: offline STT/TTS service + the page script kiosk-chrome injects
@@ -326,8 +328,7 @@ speck-os/
 - Base distro: the image is Ubuntu 24.04. It gives Canonical-signed NVIDIA modules (Secure Boot without MOK), signed shim/GRUB and the HWE kernel. Debian 13 would need its own driver profiles and a MOK flow for NVIDIA.
 - Updates of the OS itself: the agent runs apt through the broker (snapshotted), and unattended-upgrades is off. A whole-image A/B update (like Speck's slots) would make OS updates atomic too, but isn't built.
 - Target card for the first eGPU test. The AMD path needs no driver install and is the most likely to work first time; the NVIDIA path (driver, reboot, CUDA build) is written but unverified.
-- Speech recognition licence: Kroko's community model is CC-BY-SA (attribution in the product's credits). The Apache-2.0 zipformer is a one-line config switch if share-alike is unacceptable, at the cost of punctuation.
-- In the headless test, Chrome's own `webkitSpeechRecognition` produced transcripts with no network setup. Recent Chrome may recognise speech on-device, which would make the `chrome` fallback work offline too. Worth confirming on the box.
+- Speech recognition licence: Kroko's community model is CC-BY-SA (attribution in THIRD-PARTY-NOTICES.md). The Apache-2.0 zipformer is a one-line config switch if share-alike is unacceptable, at the cost of punctuation.
 - Wake word with the offline recogniser: punctuated transcripts ("Hey, Speck, …") needed Speck's wake pattern to allow punctuation (fixed). In tests, one of the eight synthetic voices is consistently heard as "Spick", and hotword biasing didn't help. How real voices fare needs checking on the box. If misses are common, a dedicated keyword spotter (sherpa-onnx KWS) for the wake word is the fix, not more spellings.
 - eGPU catalog: Qwen3 is a placeholder. Choose the escalation models with the benchmark suite (invariant 14).
 - Model server: llama.cpp `llama-server` per device (more control, one binary per backend) vs Ollama (simpler, but less control over device pinning).

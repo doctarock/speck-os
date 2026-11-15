@@ -6,7 +6,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { WebSocket } from "ws";
 import { createVoiceService, frame, int16ToFloat } from "../lib/service.mjs";
-import { voiceSource, cdpOverPipe } from "../../shell/kiosk-chrome.mjs";
+import { voiceSource, cdpOverPipe, findBrowser } from "../../shell/kiosk-chrome.mjs";
 
 const ORIGIN = "http://127.0.0.1:4310";
 
@@ -154,4 +154,12 @@ test("CDP over the pipe: NUL-framed messages, replies matched by id, events pass
   fromChrome.write('ult":{"ok":true}}\0');
   assert.deepEqual(await reply, { ok: true });
   assert.deepEqual(events, ["Target.attachedToTarget"]);
+});
+
+test("kiosk prefers Chromium, falls back to Google Chrome, and honours SPECK_CHROME", () => {
+  const only = (...present) => (p) => present.includes(p);
+  assert.equal(findBrowser(only("/usr/bin/chromium", "/usr/bin/google-chrome-stable"), {}), "/usr/bin/chromium");
+  assert.equal(findBrowser(only("/usr/bin/google-chrome-stable"), {}), "/usr/bin/google-chrome-stable");
+  assert.equal(findBrowser(only(), {}), "/usr/bin/chromium");
+  assert.equal(findBrowser(only("/usr/bin/chromium"), { SPECK_CHROME: "/opt/x/chrome" }), "/opt/x/chrome");
 });

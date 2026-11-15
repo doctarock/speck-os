@@ -80,6 +80,9 @@ verify() {  # verify <dir> <label> <media 0|1>
   expect "$label: speck-nli enabled" test -L "$r/etc/systemd/system/multi-user.target.wants/speck-nli.service"
   expect "$label: no unattended apt upgrades" test ! -e "$r/etc/systemd/system/timers.target.wants/apt-daily-upgrade.timer"
   expect "$label: llama.cpp built portable (CPU variants)" bash -c "ls '$r'/opt/llama.cpp/build-vulkan/bin/libggml-cpu-*.so | grep -q haswell"
+  expect "$label: kiosk browser is Chromium, locked down by policy" bash -c "test -x '$r/usr/lib/chromium/chromium' && test -f '$r/etc/chromium/policies/managed/speck-os.json'"
+  expect "$label: no Google Chrome (not redistributable)" bash -c "test ! -e '$r/opt/google/chrome' && test ! -e '$r/etc/apt/sources.list.d/google-chrome.list'"
+  expect "$label: xtradeb PPA limited to Chromium" grep -q "Pin-Priority: 1$" "$r/etc/apt/preferences.d/xtradeb-chromium"
   expect "$label: Vulkan backend built" bash -c "ls '$r'/opt/llama.cpp/build-vulkan/bin/ | grep -q ggml-vulkan"
   if [ "$media" = 1 ]; then
     expect "$label: installer flag set" test -f "$r/etc/speck-os/installer"
@@ -129,7 +132,7 @@ Description=Installer test probe (test images only)
 After=speck-broker.service
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'for i in $(seq 1 600); do s=$(curl -fsS --max-time 3 http://127.0.0.1:4399/api/setup/needed) && break; sleep 2; done; h=down; for i in $(seq 1 300); do h=$(curl -fsS --max-time 3 http://127.0.0.1:4310/api/health) && break; h=down; sleep 2; done; f=$(systemctl --failed --no-legend --plain | cut -d" " -f1 | tr "\\n" " "); n=down; for i in $(seq 1 60); do curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8765/health && { n=up; break; }; sleep 2; done; echo "SPECK-TEST setup=$s speck=$h nli=$n failed=[$f]" > /dev/ttyS0'
+ExecStart=/bin/sh -c 'for i in $(seq 1 600); do s=$(curl -fsS --max-time 3 http://127.0.0.1:4399/api/setup/needed) && break; sleep 2; done; h=down; for i in $(seq 1 300); do h=$(curl -fsS --max-time 3 http://127.0.0.1:4310/api/health) && break; h=down; sleep 2; done; f=$(systemctl --failed --no-legend --plain | cut -d" " -f1 | tr "\\n" " "); n=down; for i in $(seq 1 60); do curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8765/health && { n=up; break; }; sleep 2; done; k=down; for i in $(seq 1 60); do pgrep -u speck-ui -f "/usr/lib/chromium/chromium .*--kiosk" >/dev/null && { k=up; break; }; sleep 2; done; echo "SPECK-TEST setup=$s speck=$h nli=$n kiosk=$k failed=[$f]" > /dev/ttyS0'
 [Install]
 WantedBy=multi-user.target
 UNIT
@@ -164,6 +167,7 @@ UNIT
   echo "$probe" | grep -q 'speck={"ok":true}' && pass "Speck is up and healthy (no models yet)" || fail "Speck healthy"
   echo "$probe" | grep -qE 'failed=\[ *\]' && pass "no failed units" || fail "no failed units"
   echo "$probe" | grep -q 'nli=up' && pass "NLI checker service up" || fail "NLI checker service up"
+  echo "$probe" | grep -q 'kiosk=up' && pass "Chromium kiosk running" || fail "Chromium kiosk running"
   kill $QEMU 2>/dev/null; wait $QEMU 2>/dev/null
 fi
 

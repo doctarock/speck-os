@@ -36,7 +36,7 @@ sudo ./provision/provision.sh dist/speck-src.tar.gz
 ```
 
 The script:
-- installs Node 22, cage, Google Chrome and PipeWire;
+- installs Node 22, cage, Chromium and PipeWire (`BROWSER=chrome` installs Google Chrome instead, for your own box only: its terms don't allow redistributing it);
 - builds llama.cpp;
 - creates the `speck`, `infer` and `speck-ui` users;
 - installs Speck into `/opt/speck/slots/a`, with `current` pointing to it;
@@ -53,7 +53,7 @@ Re-running it is safe.
 | `infer@toolcaller` :8082 | Qwen3-0.6B-tools Q8_0 |
 | `infer@embed` :8083 | nomic-embed-text v1.5 |
 | `speck` :4310 | Speck + Genesis |
-| `speck-kiosk` tty1 | cage → Chrome kiosk |
+| `speck-kiosk` tty1 | cage → Chromium kiosk |
 
 Ctrl+Alt+F2 opens a console (dev builds only). Logs: `journalctl -u speck -u 'infer@*' -u speck-kiosk -f`.
 
@@ -61,8 +61,8 @@ Ctrl+Alt+F2 opens a console (dev builds only). Logs: `journalctl -u speck -u 'in
 
 - [ ] Boots to the Speck UI with no desktop, URL bar or login.
 - [ ] A conversation turn completes on the CPU 4B worker. Note tok/s with `journalctl -u infer@worker`.
-- [ ] Voice in and out works in kiosk Chrome (webkitSpeechRecognition + speechSynthesis).
-- [ ] Killing Chrome or Speck recovers on its own (`systemctl kill speck-kiosk`, `systemctl kill speck`).
+- [ ] Voice in and out works in the kiosk (offline voice from phase 4; Chromium has no online speech recognition).
+- [ ] Killing the browser or Speck recovers on its own (`systemctl kill speck-kiosk`, `systemctl kill speck`).
 - [ ] Memory with everything idle and during a turn (`free -m`), to compare with the budget table.
 
 Not in phase 0: the NLI checker (waits for the ONNX port).
@@ -172,8 +172,8 @@ Re-run `sudo ./provision/phase1.sh` (or just `sudo ./provision/install-voice.sh`
 | Piece | What it does |
 |---|---|
 | `speck-voice` :4320 | Local speech service. Streaming recognition (Kroko, punctuated) and speech synthesis (Kitten, 8 voices; Kokoro optional), from sherpa-onnx. Models in `/var/lib/speck-infer/voice`. |
-| `kiosk-chrome.mjs` | Starts the kiosk Chrome over a private DevTools pipe and puts local implementations of `webkitSpeechRecognition` and `speechSynthesis` into the Speck page before it loads. Speck's own voice code runs unchanged. |
-| `os_voice` tool | The agent switches recognition and speech between `local` and `chrome` (Chrome's speech stays as a fallback) and checks the service's health. |
+| `kiosk-chrome.mjs` | Starts the kiosk browser (Chromium, or Google Chrome if installed) over a private DevTools pipe and puts local implementations of `webkitSpeechRecognition` and `speechSynthesis` into the Speck page before it loads. Speck's own voice code runs unchanged. |
+| `os_voice` tool | The agent switches recognition and speech between `local` and the browser's own (`chrome`) and checks the service's health. Browser recognition needs Google Chrome; on Chromium the tool refuses it and says why. |
 
 - **Choosing a voice:** System → Voice in Speck lists the local voices; the default is Kitten "Luna".
 - **Speed:** replies start playing after about half a second on the dev machine, because speech is synthesised and streamed a sentence at a time.
@@ -187,7 +187,7 @@ Re-run `sudo ./provision/phase1.sh` (or just `sudo ./provision/install-voice.sh`
 - [ ] Speck doesn't hear itself while speaking (the mic is muted for its own replies, then reopens).
 - [ ] System → Voice lists the local voices; *Preview voice* plays the selected one.
 - [ ] `systemctl stop speck-voice`: voice reports an error and retries calmly, and recovers when the service is back.
-- [ ] Ask the agent to switch to Chrome's speech, then back (`os_voice`).
+- [ ] Ask the agent to switch to the browser's speech output, then back (`os_voice`). On Chromium, asking for browser recognition is refused with an explanation.
 
 ## NLI checker (CPU, int8)
 
@@ -234,10 +234,16 @@ Afterwards, the recovery console's *Network & time zone* button opens the same n
 
 Tests:
 - `node --test broker/test/*.test.mjs`: 64 tests (ops, boot fallback, updates, recovery console, hardware and eGPU, first-boot setup and installer).
-- `cd voice && npm ci && npm test`: 7 tests (service protocol, origin checks, injection).
-- `node voice/test/e2e-chrome.mjs <chrome> <models dir>`: real Chrome and real models, using a synthesised "Hey Speck…" recording as the microphone.
+- `cd voice && npm ci && npm test`: 8 tests (service protocol, origin checks, injection, browser choice).
+- `node voice/test/e2e-chrome.mjs <chrome> <models dir>`: a real Chromium or Chrome and real models, using a synthesised "Hey Speck…" recording as the microphone.
 - `cd nli && npm ci && npm test`: 8 tests (the sidecar API, label mapping, int8 + bounded threads, one check at a time, the self-check refusing a mis-quantized graph).
 - `node nli/tools/verify.mjs <models dir> <model> <Speck's qualification.ts>`: int8 against fp32 on the qualification corpus (the model build runs it).
 - `node broker/test/setup-ui.mjs <chrome> <voice models dir> [<screenshot dir>]`: every setup and installer screen in real Chrome, with offline voice injected, against a scripted machine; saves a screenshot of each screen.
 - `node voice/test/e2e-turn-phase.mjs <speck dir> <chrome> <voice models dir>`: Speck's real UI with offline voice and a synthesised "Hey Speck…" microphone; checks that Speck holds background work and the queue while you speak and background work while it speaks (needs the Speck changes in `src/background/turn-phase.ts`).
 - `./image/build.sh --test [--boot-test]`: installs the built image onto blank disks, from the tarball and from the USB installer itself, and checks the layout, bootloader and setup state.
+
+## License
+
+Speck OS is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License](LICENSE), version 3 or (at your option) any later version (`AGPL-3.0-or-later`). Copyright (C) 2026 Derek Robertson and Speck OS contributors.
+
+An image bundles other software and models under their own licenses, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Contributions: [CONTRIBUTING.md](CONTRIBUTING.md).
