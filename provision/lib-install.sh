@@ -80,8 +80,14 @@ inst_users() {
 inst_llama() {  # inst_llama <cpu|vulkan> [<git ref>]: checkout + build, linked as the base workers' build
   local backend=$1 ref=${2:-master}
   install -d /opt/llama.cpp /usr/lib/speck-os
-  [ -d /opt/llama.cpp/src/.git ] || git clone https://github.com/ggml-org/llama.cpp /opt/llama.cpp/src
-  git -C /opt/llama.cpp/src fetch --tags origin
+  # A large repo over a long-lived connection: retry, so one dropped transfer doesn't fail the build.
+  local try
+  for try in 1 2 3; do
+    [ -d /opt/llama.cpp/src/.git ] || git clone https://github.com/ggml-org/llama.cpp /opt/llama.cpp/src || { rm -rf /opt/llama.cpp/src; sleep 10; continue; }
+    git -C /opt/llama.cpp/src fetch --tags origin && break
+    sleep 10
+  done
+  [ -d /opt/llama.cpp/src/.git ] || { echo "llama.cpp clone failed 3 times" >&2; return 1; }
   git -C /opt/llama.cpp/src checkout --detach "$ref" 2>/dev/null || git -C /opt/llama.cpp/src checkout --detach "origin/$ref"
   # Same script speck-hwd uses to build an eGPU backend later.
   install -m 0755 "$REPO/provision/build-llama.sh" /usr/lib/speck-os/build-llama.sh

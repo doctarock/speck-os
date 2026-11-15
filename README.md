@@ -19,13 +19,14 @@ Goal: boot straight into the Speck UI full screen, with voice, with a 4B model o
 - **Hyper-V:** Generation 2, Secure Boot template *Microsoft UEFI Certificate Authority*. Give the VM a microphone if you want to test voice. Enhanced session isn't needed: the kiosk draws on the VM console.
 - **Other:** VirtualBox (VMSVGA graphics) also works.
 
-### 2. Package Speck (on the dev machine)
+### 2. Package Speck
 
 ```bash
-./tools/package-speck.sh          # SPECK=/e/AI/Speck by default
+./tools/package-speck.sh                          # a commit of github.com/doctarock/Speck (SPECK_REF=main by default)
+SPECK=../Speck ./tools/package-speck.sh           # or a local checkout's working tree, for development
 ```
 
-This produces `dist/speck-src.tar.gz` from the Speck **working tree**, including uncommitted work and `vendor/genesis-runtime`, which git doesn't track.
+This produces `dist/speck-src.tar.gz` (Speck with Genesis in `vendor/genesis-runtime`). The commit packaged, or `+dirty` for a local tree, is recorded in `dist/speck-src.version` and ends up in `/etc/speck-os/versions` on the box.
 
 ### 3. Provision (in the VM)
 
@@ -103,7 +104,7 @@ The script:
 No extra install step: re-run `sudo ./provision/phase1.sh` to ship the updated broker, then copy a bundle onto the box. Either you or the agent starts the update:
 
 ```bash
-./tools/package-speck.sh                              # on the dev machine
+./tools/package-speck.sh                              # on any machine with git
 scp dist/speck-src.tar.gz box:/var/tmp/               # bundle onto the box
 sudo speck-broker update /var/tmp/speck-src.tar.gz    # or: the agent calls os_update
 sudo speck-broker update-status
@@ -203,8 +204,8 @@ Phases 0–4 turn a hand-installed Ubuntu into Speck OS. Phase 5 builds the same
 ### Build the image (dev machine, Docker)
 
 ```bash
-./tools/package-speck.sh                 # if Speck changed
-./image/build.sh                         # → image/out/speck-os-installer-<date>.img.xz
+./image/build.sh                         # packages Speck from GitHub, → image/out/speck-os-installer-<date>.img.xz
+SPECK_REF=<tag or commit> ./image/build.sh   # a specific Speck release
 ./image/build.sh --bake-models           # same, with the workers' models (~5 GB) inside: no internet needed at first boot
 ./image/build.sh --no-compress --test    # raw .img, then install it onto blank disks and check the result
 ```
@@ -239,7 +240,7 @@ Tests:
 - `cd nli && npm ci && npm test`: 8 tests (the sidecar API, label mapping, int8 + bounded threads, one check at a time, the self-check refusing a mis-quantized graph).
 - `node nli/tools/verify.mjs <models dir> <model> <Speck's qualification.ts>`: int8 against fp32 on the qualification corpus (the model build runs it).
 - `node broker/test/setup-ui.mjs <chrome> <voice models dir> [<screenshot dir>]`: every setup and installer screen in real Chrome, with offline voice injected, against a scripted machine; saves a screenshot of each screen.
-- `node voice/test/e2e-turn-phase.mjs <speck dir> <chrome> <voice models dir>`: Speck's real UI with offline voice and a synthesised "Hey Speck…" microphone; checks that Speck holds background work and the queue while you speak and background work while it speaks (needs the Speck changes in `src/background/turn-phase.ts`).
+- `node voice/test/e2e-turn-phase.mjs <speck dir> <chrome> <voice models dir>`: Speck's real UI with offline voice and a synthesised "Hey Speck…" microphone; checks that Speck holds background work and the queue while you speak and background work while it speaks (Speck 82ed867 or later).
 - `./image/build.sh --test [--boot-test]`: installs the built image onto blank disks, from the tarball and from the USB installer itself, and checks the layout, bootloader and setup state.
 
 ## License

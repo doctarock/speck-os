@@ -11,7 +11,7 @@
 #   --reuse-root    skip mkosi and reuse the last root tree (when only the installer changed)
 #
 # Results: speck-os-installer-<date>.img.xz (flash it to a USB stick with any image writer) and the
-# root tarball. Packages Speck first if dist/speck-src.tar.gz is missing.
+# root tarball. Packages Speck first (tools/package-speck.sh: the public Speck repo by default).
 set -euo pipefail
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 OUT=$REPO/image/out BAKE=0 COMPRESS=1 TEST=0 BOOT_TEST=0 REUSE=0
@@ -26,7 +26,9 @@ while [ $# -gt 0 ]; do
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
-[ -f "$REPO/dist/speck-src.tar.gz" ] || "$REPO/tools/package-speck.sh"
+# Speck is packaged fresh for every root build (from the public repo unless SPECK=<dir> is set),
+# so an image never picks up a stale tarball.
+[ "$REUSE" = 1 ] && [ -f "$REPO/dist/speck-src.tar.gz" ] || "$REPO/tools/package-speck.sh"
 mkdir -p "$OUT"
 
 # Docker Desktop on Windows (Git Bash): give docker Windows paths and stop MSYS rewriting /src.
