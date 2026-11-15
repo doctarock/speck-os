@@ -12,7 +12,7 @@ git commit -s
 
 ## Before you open a pull request
 
-- Run the tests for what you changed (see "Tests" in the [README](README.md)): `node --test broker/test/*.test.mjs`, `node --test voice/test/service.test.mjs`, `node --test nli/test/service.test.mjs`.
+- Run the tests for what you changed (listed at the end of [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)): `node --test broker/test/*.test.mjs`, `node --test voice/test/service.test.mjs`, `node --test nli/test/service.test.mjs`.
 - Changes to the image or installer: run `bash image/build.sh --test` (or `--boot-test` for the Secure Boot boot) and include the result.
 - Keep anything that can't be redistributed out of the image: Google Chrome, models with restrictive licenses, and other proprietary software. Add new bundled components to [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
