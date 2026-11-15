@@ -1,0 +1,11 @@
+{
+  "name": "speck-nli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Speck OS: the NLI checker as int8 ONNX on the CPU (drop-in for Speck's Python sidecar)",
+  "type": "module",
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1"
+  }
+}

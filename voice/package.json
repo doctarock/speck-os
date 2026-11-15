@@ -1,0 +1,15 @@
+{
+  "name": "speck-voice",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline speech (STT + TTS) for the Speck OS kiosk",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "1.13.8",
+    "ws": "8.22.0"
+  }
+}

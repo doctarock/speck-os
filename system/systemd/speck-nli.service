@@ -1,0 +1,21 @@
+[Unit]
+Description=Speck OS NLI checker (int8 ONNX on the CPU; Speck's nli processors)
+After=local-fs.target
+# Not on the USB installer, which only runs the Install screen.
+ConditionPathExists=!/etc/speck-os/installer
+
+[Service]
+Type=simple
+User=infer
+Group=infer
+WorkingDirectory=/usr/lib/speck-os/nli
+Environment=SPECK_NLI_CONFIG=/etc/speck-os/nli.json
+ExecStart=/usr/bin/node /usr/lib/speck-os/nli/server.mjs
+Restart=on-failure
+RestartSec=5
+# A check is background judgment: it yields the CPU to speech and the foreground.
+Nice=10
+CPUWeight=50
+
+[Install]
+WantedBy=multi-user.target

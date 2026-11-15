@@ -1,0 +1,14 @@
+[Unit]
+# Not on the USB installer, which only runs the Install screen.
+ConditionPathExists=!/etc/speck-os/installer
+Description=Speck OS boot health (reset boot counter, promote fallback, mark good)
+After=speck-broker.service speck.service
+Wants=speck-broker.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/speck-os/broker.env
+ExecStart=/usr/bin/node /usr/lib/speck-os/broker/speck-broker.mjs boot-ok
+
+[Install]
+WantedBy=multi-user.target

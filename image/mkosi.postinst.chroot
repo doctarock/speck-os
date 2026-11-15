@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Runs inside the image tree after mkosi installed the Ubuntu packages: the same install steps as
+# provision/provision.sh and phase1.sh, minus everything that needs a running system. The disk
+# layout, fstab, snapper config and GRUB come later, from speck-install.
+set -euo pipefail
+REPO=${SRCDIR:-/work/src}/speck-os
+TARBALL=$REPO/dist/speck-src.tar.gz
+[ -f "$TARBALL" ] || { echo "missing $TARBALL: run tools/package-speck.sh first" >&2; exit 1; }
+export KIOSK=1
+. "$REPO/provision/lib-install.sh"
+
+# mkosi configures apt for the build only; the box needs its own sources to update itself.
+if [ ! -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+  cat > /etc/apt/sources.list.d/ubuntu.sources <<'EOF'
+Types: deb
+URIs: http://archive.ubuntu.com/ubuntu/
+Suites: noble noble-updates noble-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu/
+Suites: noble-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+fi
+
+inst_packages
+inst_node
+inst_chrome
+inst_users
+inst_llama "${LLAMA_BACKEND:-vulkan}" "${LLAMA_REF:-master}"
+LLAMA_COMMIT=$(git -C /opt/llama.cpp/src rev-parse --short HEAD)
+inst_speck_slot "$TARBALL"
+inst_config
+seed_approvals
+inst_runtime_units
+inst_broker
+inst_grub
+inst_voice
+inst_voice_models
+inst_nli
+inst_nli_model
+[ "${BAKE_MODELS:-0}" = 1 ] && inst_bake_models
+inst_enable
+
+# NetworkManager manages every interface (Ethernet connects by itself; setup does Wi-Fi).
+install -d /etc/netplan
+printf 'network:\n  version: 2\n  renderer: NetworkManager\n' > /etc/netplan/01-network-manager-all.yaml
+chmod 600 /etc/netplan/01-network-manager-all.yaml
+systemctl disable systemd-networkd.service systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl enable NetworkManager.service
+
+# The agent maintains the system through the broker (snapshotted, audited); nothing updates behind it.
+systemctl disable apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+rm -f /etc/apt/apt.conf.d/20auto-upgrades
+
+# mkosi may skip initramfs generation for a non-bootable tree; GRUB needs one per kernel.
+for modules in /usr/lib/modules/*; do
+  v=$(basename "$modules")
+  [ -f "/boot/vmlinuz-$v" ] || continue
+  [ -f "/boot/initrd.img-$v" ] || update-initramfs -c -k "$v"
+done
+
+cat > /etc/speck-os/versions <<EOF
+speck-os image $(date -u +%Y-%m-%dT%H:%M:%SZ)
+$(cat "${TARBALL%.tar.gz}.version" 2>/dev/null || echo "speck unknown")
+llama.cpp $LLAMA_COMMIT (${LLAMA_BACKEND:-vulkan})
+node $(node --version)
+chrome $(google-chrome-stable --version 2>/dev/null || echo none)
+kernel $(ls /boot/vmlinuz-* | sed 's|.*/vmlinuz-||' | sort -V | tail -1)
+EOF
+
+# Smaller image: downloaded packages and npm caches. (The apt lists stay: the broker, speck-hwd's
+# driver installs and CUDA builds run apt-get install without an update first.)
+apt-get clean
+rm -rf /root/.npm /var/lib/speck/.npm /var/lib/speck-infer/.npm /tmp/*

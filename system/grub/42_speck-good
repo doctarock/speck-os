@@ -1,0 +1,18 @@
+#!/bin/sh
+# Speck OS "last known good" entry: boots the @good subvolume with the kernel that was running
+# when it was marked good (copied to /boot/speck-good by speck-broker).
+set -e
+GOOD=/boot/speck-good
+[ -f "$GOOD/vmlinuz" ] && [ -f "$GOOD/initrd.img" ] || exit 0
+
+. /usr/share/grub/grub-mkconfig_lib
+ROOT_UUID=$(grub-probe --target=fs_uuid /)
+BOOT_DEVICE=$(grub-probe --target=device /boot)
+REL=$(make_system_path_relative_to_its_root "$GOOD")
+CMDLINE=$(. /etc/default/grub; for f in /etc/default/grub.d/*.cfg; do [ -f "$f" ] && . "$f"; done; echo "$GRUB_CMDLINE_LINUX $GRUB_CMDLINE_LINUX_DEFAULT")
+
+echo "menuentry 'Speck OS (last known good)' --id speck-good {"
+prepare_grub_to_access_device "$BOOT_DEVICE" | sed 's/^/  /'
+echo "  linux $REL/vmlinuz root=UUID=$ROOT_UUID rootflags=subvol=@good ro $CMDLINE speck.fallback=1"
+echo "  initrd $REL/initrd.img"
+echo "}"

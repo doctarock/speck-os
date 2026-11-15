@@ -1,0 +1,26 @@
+{
+  "port": 4320,
+  "allowedOrigins": [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310",
+    "http://127.0.0.1:4399"
+  ],
+  "modelsDir": "/var/lib/speck-infer/voice",
+  "browser": {
+    "stt": "local",
+    "tts": "local"
+  },
+  "stt": {
+    "model": "kroko-en",
+    "threads": 2,
+    "endpointSilenceSec": 0.8
+  },
+  "tts": {
+    "models": [
+      "kitten-nano",
+      "kokoro-en"
+    ],
+    "defaultVoice": "kitten-nano:3",
+    "threads": 2
+  }
+}

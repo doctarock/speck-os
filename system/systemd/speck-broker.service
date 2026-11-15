@@ -1,0 +1,16 @@
+[Unit]
+Description=Speck OS broker (the agent's root access)
+After=local-fs.target
+Before=speck.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/speck-os/broker.env
+ExecStart=/usr/bin/node /usr/lib/speck-os/broker/speck-broker.mjs serve
+RuntimeDirectory=speck-broker
+RuntimeDirectoryMode=0755
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Runs last, after mkosi's `systemctl preset-all`. Ubuntu ships no preset policy, so presets enable
+# every unit installed; this puts back the choices an appliance needs.
+set -euo pipefail
+# NetworkManager owns the network; networkd's wait-online would hold up boot for two minutes.
+systemctl disable systemd-networkd.service systemd-networkd.socket systemd-networkd-wait-online.service \
+  systemd-network-generator.service 2>/dev/null || true
+systemctl enable NetworkManager.service
+# The agent updates the system through the broker (snapshotted, audited), not behind its back.
+systemctl disable apt-daily.timer apt-daily-upgrade.timer systemd-sysupdate.timer systemd-sysupdate-reboot.timer 2>/dev/null || true
+# Services nobody uses on the box.
+systemctl disable rsync.service 2>/dev/null || true

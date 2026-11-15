@@ -1,0 +1,65 @@
+{
+  "egpu": {
+    "port": 8090,
+    "autoReboot": true,
+    "maxDriverAttempts": 2,
+    "readyTimeoutSec": 21600,
+    "headroom": 0.92,
+    "extraArgs": "--jinja -ngl 99 -fa on -ctk q8_0 -ctv q8_0 -np 1 --cache-reuse 256"
+  },
+  "profiles": {
+    "nvidia": {
+      "kernelDrivers": ["nvidia"],
+      "check": "nvidia-smi -L",
+      "install": "/usr/lib/speck-os/hwd/drivers/nvidia.sh",
+      "backend": "cuda",
+      "fallbackBackend": "vulkan"
+    },
+    "amd": {
+      "kernelDrivers": ["amdgpu"],
+      "backend": "vulkan"
+    },
+    "intel": {
+      "kernelDrivers": ["xe", "i915"],
+      "backend": "vulkan"
+    }
+  },
+  "catalog": [
+    {
+      "hf": "Qwen/Qwen3-32B-GGUF:Q4_K_M",
+      "parameters": 32800000000,
+      "weightsGB": 19.76,
+      "kvBytesPerToken": 139264,
+      "contexts": [32768],
+      "tier": 4,
+      "specialties": ["general", "coding", "planning", "reasoning"]
+    },
+    {
+      "hf": "Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M",
+      "parameters": 30500000000,
+      "weightsGB": 18.56,
+      "kvBytesPerToken": 52224,
+      "contexts": [32768],
+      "tier": 4,
+      "specialties": ["general", "coding", "planning", "reasoning"]
+    },
+    {
+      "hf": "Qwen/Qwen3-14B-GGUF:Q4_K_M",
+      "parameters": 14800000000,
+      "weightsGB": 9.0,
+      "kvBytesPerToken": 87040,
+      "contexts": [32768, 16384],
+      "tier": 3,
+      "specialties": ["general", "coding", "planning", "reasoning"]
+    },
+    {
+      "hf": "Qwen/Qwen3-8B-GGUF:Q4_K_M",
+      "parameters": 8200000000,
+      "weightsGB": 5.03,
+      "kvBytesPerToken": 78336,
+      "contexts": [32768, 16384],
+      "tier": 3,
+      "specialties": ["general", "coding", "planning"]
+    }
+  ]
+}

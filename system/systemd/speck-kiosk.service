@@ -1,0 +1,28 @@
+[Unit]
+Description=Speck OS kiosk (cage + Chrome)
+After=systemd-user-sessions.service plymouth-quit-wait.service speck.service
+Wants=speck.service
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+User=speck-ui
+PAMName=speck-kiosk
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+Environment=XDG_SESSION_TYPE=wayland
+# -s allows VT switching (Ctrl+Alt+F2 to a console) during development. Remove for appliance builds.
+ExecStart=/usr/bin/cage -s -- /usr/lib/speck-os/kiosk-launch.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical.target

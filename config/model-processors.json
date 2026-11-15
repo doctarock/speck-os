@@ -1,0 +1,81 @@
+{
+  "processors": [
+    {
+      "id": "intake",
+      "provider": "llama.cpp",
+      "model": "lfm2.5-1.2b-instruct-q8_0",
+      "baseUrl": "http://127.0.0.1:8081",
+      "tier": 1,
+      "contextSize": 16384,
+      "parameters": 1170000000,
+      "hardware": "budget-local",
+      "specialties": [
+        "intake",
+        "classification"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "qwen3-4b",
+      "provider": "llama.cpp",
+      "model": "qwen3-4b-q4_k_m",
+      "baseUrl": "http://127.0.0.1:8080",
+      "tier": 2,
+      "contextSize": 32768,
+      "parameters": 4000000000,
+      "hardware": "budget-local",
+      "specialties": [
+        "general",
+        "coding",
+        "planning"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "tool-caller",
+      "provider": "llama.cpp",
+      "model": "qwen3-0.6b-tools-q8_0",
+      "baseUrl": "http://127.0.0.1:8082",
+      "tier": 1,
+      "contextSize": 16384,
+      "parameters": 600000000,
+      "hardware": "budget-local",
+      "specialties": [
+        "tool-use",
+        "function-calling"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "nli-checker",
+      "provider": "nli",
+      "model": "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli",
+      "baseUrl": "http://127.0.0.1:8765",
+      "tier": 1,
+      "contextSize": 512,
+      "parameters": 435000000,
+      "hardware": "budget-local",
+      "specialties": [
+        "atomic-entailment"
+      ],
+      "enabled": true
+    }
+  ],
+  "roles": {
+    "intake": "intake",
+    "planner": "qwen3-4b",
+    "worker": "qwen3-4b",
+    "toolCaller": "tool-caller",
+    "specialists": {}
+  },
+  "embedding": {
+    "enabled": true,
+    "provider": "llama.cpp",
+    "baseUrl": "http://127.0.0.1:8083",
+    "model": "nomic-embed-text-v1.5",
+    "dimensions": 768,
+    "timeoutMs": 30000,
+    "batchSize": 16,
+    "allowHashFallback": true
+  }
+}

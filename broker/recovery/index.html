@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speck Recovery</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1d1c1a; --muted: #6b6862; --line: #e2dfd8;
+    --ok: #1f7a4d; --bad: #b3261e; --warn: #8a5a00; --accent: #2f5bd3; --accent-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141413; --panel: #1e1d1b; --text: #ecebe8; --muted: #a09d96; --line: #34322e;
+      --ok: #5cc28f; --bad: #f2867d; --warn: #e0b45a; --accent: #8aa8ff; --accent-text: #0f1424; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .banner { display: flex; align-items: center; gap: 14px; padding: 18px 20px; border-radius: 12px; background: var(--panel);
+    border: 1px solid var(--line); margin-bottom: 20px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  .banner strong { font-size: 18px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  button { font: inherit; font-weight: 600; padding: 12px 18px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); cursor: pointer; min-height: 48px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: progress; }
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td { padding: 7px 6px; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+  td:first-child { color: var(--muted); white-space: nowrap; }
+  pre { margin: 0; max-height: 360px; overflow: auto; font: 12px/1.45 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  .wide { grid-column: 1 / -1; }
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--text); color: var(--bg);
+    padding: 12px 18px; border-radius: 10px; display: none; max-width: calc(100% - 32px); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Speck Recovery</h1>
+  <p class="lede">This page runs without the agent. Speck returns to the main screen by itself once it is healthy again.</p>
+
+  <div class="banner" id="banner"><span class="dot" id="dot"></span><div><strong id="headline">Checking…</strong><div id="subline" class="lede" style="margin:0"></div></div></div>
+
+  <div class="grid">
+    <section>
+      <h2>Actions</h2>
+      <div class="actions">
+        <button class="primary" data-action="restart-speck">Restart Speck</button>
+        <button data-action="restart-workers">Restart models</button>
+        <button data-action="rollback-update" data-confirm="Switch back to the previous Speck version?">Undo last update</button>
+        <button data-action="reboot" data-confirm="Restart the whole machine?">Restart machine</button>
+        <button onclick="location.href = '/setup#network'">Network &amp; time zone</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Machine</h2>
+      <dl id="machine"></dl>
+    </section>
+
+    <section>
+      <h2>Updates</h2>
+      <dl id="updates"></dl>
+    </section>
+
+    <section>
+      <h2>Undo system changes</h2>
+      <table id="snapshots"></table>
+    </section>
+
+    <section class="wide">
+      <h2>Recent activity</h2>
+      <table id="audit"></table>
+    </section>
+
+    <section class="wide">
+      <h2>Logs</h2>
+      <pre id="logs"></pre>
+    </section>
+  </div>
+</main>
+<div id="toast"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const gb = (b) => b ? (b / 1e9).toFixed(1) + " GB" : "–";
+const when = (iso) => iso ? new Date(iso).toLocaleString() : "–";
+
+function toast(text) {
+  const t = $("toast"); t.textContent = text; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.style.display = "none"; }, 6000);
+}
+
+async function act(action, extra = {}) {
+  const response = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Speck-Recovery": "1" },
+    body: JSON.stringify({ action, ...extra }) });
+  const result = await response.json().catch(() => ({ ok: false, error: "no response" }));
+  toast(result.ok === false ? `Failed: ${result.error || result.stderr || "unknown error"}` : "Done.");
+  refresh();
+}
+
+document.addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  if (button.dataset.confirm && !confirm(button.dataset.confirm)) return;
+  button.disabled = true;
+  try {
+    const extra = button.dataset.snapshot ? { snapshot: Number(button.dataset.snapshot) } : {};
+    await act(button.dataset.action, extra);
+  } finally { button.disabled = false; }
+});
+
+function rows(pairs) {
+  return pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
+}
+
+async function refresh() {
+  let s;
+  try { s = await (await fetch("/api/state")).json(); } catch { return; }
+  const healthy = s.speck?.ok;
+  $("dot").style.background = healthy ? "var(--ok)" : "var(--bad)";
+  $("headline").textContent = healthy ? "Speck is running" : "Speck is not responding";
+  $("subline").textContent = healthy ? "Returning to Speck…" : (s.speck?.reason || "");
+  if (healthy && new URLSearchParams(location.search).get("return")) location.href = new URLSearchParams(location.search).get("return");
+
+  const st = s.status || {};
+  const failed = (st.failedUnits || []).length;
+  $("machine").innerHTML = rows([
+    ["Host", esc(st.hostname)],
+    ["Up", st.uptimeSec ? `${Math.floor(st.uptimeSec / 3600)} h ${Math.floor(st.uptimeSec % 3600 / 60)} min` : "–"],
+    ["Memory free", `${gb(st.memory?.availableBytes)} of ${gb(st.memory?.totalBytes)}`],
+    ["Disk free", (st.disks || []).map((d) => `${esc(d.mount)} ${gb(d.availBytes)}`).join(" · ") || "–"],
+    ["Failed services", failed ? `<span class="bad">${esc(st.failedUnits.join(", "))}</span>` : `<span class="ok">none</span>`],
+    ["Boot fallback", st.boot?.fallbackBoot ? `<span class="warn">running from last known good</span>` : st.boot?.goodMarked ? `<span class="ok">armed</span>` : `<span class="warn">not armed</span>`],
+    ["Reboot needed", st.rebootRequired ? `<span class="warn">yes</span>` : "no"]
+  ]);
+
+  const u = s.update || {};
+  const job = u.job;
+  const last = (u.history || [])[0];
+  $("updates").innerHTML = rows([
+    ["Running version", esc(u.releases?.[u.current]?.version || `slot ${u.current || "?"}`)],
+    ["In progress", job && job.phase !== "done" ? `<span class="warn">${esc(job.phase)}</span>` : "none"],
+    ["Last update", last ? `${esc(last.status)} · ${when(last.finishedAt)}${last.error ? ` · <span class="bad">${esc(last.error)}</span>` : ""}` : "none yet"]
+  ]);
+
+  $("snapshots").innerHTML = (s.snapshots || []).map((snap) =>
+    `<tr><td>${when(snap.date)}</td><td>${esc(snap.description)}</td><td><button data-action="rollback-snapshot" data-snapshot="${snap.number}" data-confirm="Undo every system change made since this point? Agent memory is not affected.">Undo to here</button></td></tr>`
+  ).join("") || `<tr><td>No snapshots</td></tr>`;
+
+  $("audit").innerHTML = (s.audit || []).map((e) =>
+    `<tr><td>${when(e.at)}</td><td>${esc(e.op)}</td><td class="${e.ok === false || e.error ? "bad" : ""}">${esc(e.description || e.reason || e.action || e.status || "")}${e.error ? " · " + esc(e.error) : ""}</td></tr>`
+  ).join("") || `<tr><td>Nothing yet</td></tr>`;
+
+  const pre = $("logs");
+  const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+  pre.textContent = s.logs || "";
+  if (atBottom) pre.scrollTop = pre.scrollHeight;
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "host": "127.0.0.1",
+  "port": 8765,
+  "modelsDir": "/var/lib/speck-infer/nli",
+  "threads": 2,
+  "preload": false,
+  "models": ["MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"]
+}

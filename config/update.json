@@ -1,0 +1,10 @@
+{
+  "defaultSource": null,
+  "gate": [
+    { "name": "speck tests", "command": "npm test", "timeoutSec": 1800 }
+  ],
+  "readySec": 180,
+  "watchSec": 300,
+  "watchIntervalSec": 10,
+  "failuresToRollback": 3
+}

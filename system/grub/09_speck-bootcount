@@ -1,0 +1,26 @@
+#!/bin/sh
+# Speck OS boot counter. GRUB increments speck_try on every boot; speck-boot-ok.service clears it
+# once the system is healthy. Two unhealthy boots in a row -> boot the last known good root.
+# Needs a writable grubenv, i.e. /boot on ext4 (GRUB cannot write to btrfs).
+set -e
+cat <<'EOF'
+if [ -s $prefix/grubenv ]; then
+  load_env speck_try speck_good
+fi
+if [ "${speck_try}" = "2" ]; then
+  set speck_try=3
+elif [ "${speck_try}" = "3" ]; then
+  set speck_try=3
+elif [ "${speck_try}" = "1" ]; then
+  set speck_try=2
+else
+  set speck_try=1
+fi
+save_env speck_try
+if [ "${speck_try}" = "3" ]; then
+  if [ "${speck_good}" = "1" ]; then
+    set default="speck-good"
+    set timeout=1
+  fi
+fi
+EOF

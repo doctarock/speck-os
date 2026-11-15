@@ -1,0 +1,18 @@
+{
+  "id": "speck-os",
+  "name": "Speck OS",
+  "description": "Speck as the whole machine's interface. The agent administers the box through os-system; everything else comes from installed plugins.",
+  "enabledPlugins": [],
+  "forceEnabledPlugins": ["os-system"],
+  "disabledPlugins": [],
+  "defaultProvider": "",
+  "systemPromptAddons": [],
+  "ui": {
+    "title": "Speck",
+    "hiddenTabs": [],
+    "defaultTab": "world"
+  },
+  "runtime": {
+    "allowGeneralAssistant": true
+  }
+}

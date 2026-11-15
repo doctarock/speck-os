@@ -1,0 +1,17 @@
+[Unit]
+# Not on the USB installer, which only runs the Install screen.
+ConditionPathExists=!/etc/speck-os/installer
+Description=Speck OS hardware: pin the base workers, set up any eGPU
+# Before the inference workers (infer@.service orders itself after this unit). The slow part,
+# drivers, builds and model downloads, continues in the broker in the background.
+After=speck-broker.service systemd-udev-trigger.service systemd-modules-load.service
+Wants=speck-broker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/speck-broker hw-boot
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=Speck OS offline speech (STT + TTS for the kiosk)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=infer
+Group=infer
+WorkingDirectory=/usr/lib/speck-os/voice
+Environment=SPECK_VOICE_CONFIG=/etc/speck-os/voice.json
+ExecStart=/usr/bin/node /usr/lib/speck-os/voice/server.mjs
+Restart=on-failure
+RestartSec=3
+# Speech is latency-bound and the user is waiting on it: it wins the CPU over background work
+# (the LLM runs on the iGPU; its host threads and the embedder can wait a few milliseconds).
+Nice=-5
+CPUWeight=400
+
+[Install]
+WantedBy=multi-user.target

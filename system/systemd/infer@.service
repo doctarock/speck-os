@@ -1,0 +1,26 @@
+[Unit]
+# Not on the USB installer, which only runs the Install screen.
+ConditionPathExists=!/etc/speck-os/installer
+Description=Speck OS inference worker (%i)
+After=network-online.target speck-hwd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=infer
+Group=infer
+# PORT, MODEL_HF (repo:quant, fetched by llama-server -hf), CTX, EXTRA_ARGS; for the eGPU also
+# LLAMA_BACKEND and device pinning, written by speck-hwd. base.env (speck-hwd, per boot) keeps
+# the base workers on the iGPU when an eGPU is attached; each worker's own file wins over it.
+EnvironmentFile=-/run/speck-os/hw/base.env
+EnvironmentFile=/etc/speck-os/workers/%i.env
+Environment=LLAMA_CACHE=/var/lib/speck-infer/models
+ExecCondition=/usr/lib/speck-os/infer-run.sh --check %i
+ExecStart=/usr/lib/speck-os/infer-run.sh %i
+Restart=on-failure
+RestartSec=5
+# Model downloads on first start can be slow.
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

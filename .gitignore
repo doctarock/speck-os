@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output and caches (image builds, release images, downloaded models)
+dist/
+image/out/
+image/cache/
+probe-*/
+
+# Python scratch environments (NLI quantize tooling)
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Model files are fetched or built at install time, never committed
+*.gguf
+*.onnx
+*.onnx_data
+
+# Logs and local junk
+*.log
+.env
+.env.*
+.DS_Store
+Thumbs.db

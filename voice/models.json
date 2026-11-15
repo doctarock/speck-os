@@ -1,0 +1,67 @@
+{
+  "kroko-en": {
+    "kind": "stt",
+    "title": "Kroko streaming English (punctuated)",
+    "license": "CC-BY-SA-4.0 (Banafo Kroko community model; attribution required)",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06.tar.bz2",
+    "dir": "sherpa-onnx-streaming-zipformer-en-kroko-2025-08-06",
+    "transducer": { "encoder": "encoder.onnx", "decoder": "decoder.onnx", "joiner": "joiner.onnx" },
+    "tokens": "tokens.txt",
+    "lang": "en"
+  },
+  "zipformer-en": {
+    "kind": "stt",
+    "title": "Zipformer streaming English (int8, no punctuation)",
+    "license": "Apache-2.0",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-en-2023-06-26.tar.bz2",
+    "dir": "sherpa-onnx-streaming-zipformer-en-2023-06-26",
+    "transducer": {
+      "encoder": "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+      "decoder": "decoder-epoch-99-avg-1-chunk-16-left-128.onnx",
+      "joiner": "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx"
+    },
+    "tokens": "tokens.txt",
+    "lang": "en"
+  },
+  "kitten-nano": {
+    "kind": "tts",
+    "engine": "kitten",
+    "title": "Kitten TTS nano 0.8 (int8)",
+    "license": "Apache-2.0",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kitten-nano-en-v0_8-int8.tar.bz2",
+    "dir": "kitten-nano-en-v0_8-int8",
+    "files": { "model": "model.int8.onnx", "voices": "voices.bin", "tokens": "tokens.txt", "dataDir": "espeak-ng-data" },
+    "voices": [
+      { "sid": 0, "name": "Jasper", "lang": "en-US" },
+      { "sid": 1, "name": "Bella", "lang": "en-US" },
+      { "sid": 2, "name": "Bruno", "lang": "en-US" },
+      { "sid": 3, "name": "Luna", "lang": "en-US" },
+      { "sid": 4, "name": "Hugo", "lang": "en-US" },
+      { "sid": 5, "name": "Rosie", "lang": "en-US" },
+      { "sid": 6, "name": "Leo", "lang": "en-US" },
+      { "sid": 7, "name": "Kiki", "lang": "en-US" }
+    ]
+  },
+  "kokoro-en": {
+    "kind": "tts",
+    "engine": "kokoro",
+    "title": "Kokoro 82M v0.19 (fp32; int8 is slower on CPU)",
+    "license": "Apache-2.0",
+    "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2",
+    "dir": "kokoro-en-v0_19",
+    "files": { "model": "model.onnx", "voices": "voices.bin", "tokens": "tokens.txt", "dataDir": "espeak-ng-data" },
+    "voices": [
+      { "sid": 0, "name": "Kokoro", "lang": "en-US" },
+      { "sid": 1, "name": "Bella", "lang": "en-US" },
+      { "sid": 2, "name": "Nicole", "lang": "en-US" },
+      { "sid": 3, "name": "Sarah", "lang": "en-US" },
+      { "sid": 4, "name": "Sky", "lang": "en-US" },
+      { "sid": 5, "name": "Adam", "lang": "en-US" },
+      { "sid": 6, "name": "Michael", "lang": "en-US" },
+      { "sid": 7, "name": "Emma", "lang": "en-GB" },
+      { "sid": 8, "name": "Isabella", "lang": "en-GB" },
+      { "sid": 9, "name": "George", "lang": "en-GB" },
+      { "sid": 10, "name": "Lewis", "lang": "en-GB" }
+    ]
+  }
+}

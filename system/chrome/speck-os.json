@@ -1,0 +1,36 @@
+{
+  "AudioCaptureAllowedUrls": [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310",
+    "http://127.0.0.1:4399"
+  ],
+  "VideoCaptureAllowedUrls": [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310"
+  ],
+  "URLBlocklist": [
+    "*"
+  ],
+  "URLAllowlist": [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310",
+    "http://127.0.0.1:4399",
+    "http://127.0.0.1:4320",
+    "about:blank"
+  ],
+  "DefaultBrowserSettingEnabled": false,
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "PasswordManagerEnabled": false,
+  "TranslateEnabled": false,
+  "BrowserGuestModeEnabled": false,
+  "IncognitoModeAvailability": 1,
+  "MetricsReportingEnabled": false,
+  "DeveloperToolsAvailability": 1,
+  "AutoplayAllowlist": [
+    "http://127.0.0.1:4310",
+    "http://localhost:4310",
+    "http://127.0.0.1:4399"
+  ],
+  "RemoteDebuggingAllowed": true
+}

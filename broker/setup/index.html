@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speck Setup</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --text: #1d1c1a; --muted: #6b6862; --line: #e2dfd8; --soft: #efede8;
+    --ok: #1f7a4d; --bad: #b3261e; --warn: #8a5a00; --accent: #2f5bd3; --accent-text: #ffffff; --accent-soft: #e8eefc;
+    --danger: #b3261e; --danger-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141413; --panel: #1e1d1b; --text: #ecebe8; --muted: #a09d96; --line: #34322e; --soft: #282724;
+      --ok: #5cc28f; --bad: #f2867d; --warn: #e0b45a; --accent: #8aa8ff; --accent-text: #0f1424; --accent-soft: #232a3d;
+      --danger: #f2867d; --danger-text: #1f0d0b; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 18px/1.5 system-ui, sans-serif; }
+  .shell { min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 32px 16px; }
+  .steps { display: flex; gap: 8px; list-style: none; padding: 0; margin: 0 0 28px; flex-wrap: wrap; justify-content: center; }
+  .steps li { font-size: 14px; color: var(--muted); padding: 6px 12px; border-radius: 999px; border: 1px solid transparent; }
+  .steps li.current { color: var(--text); border-color: var(--line); background: var(--panel); font-weight: 600; }
+  .steps li.done { color: var(--ok); }
+  .steps li.done::before { content: "✓ "; }
+  main { width: 100%; max-width: 760px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 36px 40px 28px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 10px; outline: none; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  .footer { display: flex; align-items: center; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .footer .spacer { flex: 1; }
+  button { font: inherit; font-weight: 600; padding: 12px 22px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); cursor: pointer; min-height: 52px; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { background: var(--danger); color: var(--danger-text); border-color: var(--danger); }
+  button.link { border: none; background: none; color: var(--accent); padding: 12px 6px; min-height: 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible, .choice:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  input[type=text], input[type=password], input[type=search] { font: inherit; width: 100%; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); min-height: 52px; }
+  label.field { display: block; font-size: 15px; color: var(--muted); margin: 14px 0 6px; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; padding: 18px 20px; background: var(--soft); border-radius: 12px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; overflow-wrap: anywhere; }
+  .note { font-size: 16px; color: var(--muted); margin-top: 18px; }
+  .status { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-radius: 12px; background: var(--soft); margin-bottom: 16px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+  .list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow: auto; padding: 2px; }
+  .choice { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 14px 16px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); font-weight: 500; min-height: 60px; cursor: pointer; }
+  .choice.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .choice .grow { flex: 1; min-width: 0; }
+  .choice .sub { display: block; font-size: 14px; color: var(--muted); font-weight: 400; }
+  .bars { display: inline-flex; gap: 2px; align-items: flex-end; height: 18px; }
+  .bars i { width: 4px; background: var(--line); border-radius: 1px; }
+  .bars i.on { background: var(--text); }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > input { flex: 1; }
+  .error { color: var(--bad); margin: 10px 0 0; }
+  .inline-form { padding: 4px 16px 16px; margin-top: -9px; border: 1px solid var(--accent); border-top: none;
+    border-radius: 0 0 12px 12px; background: var(--accent-soft); }
+  .inline-form label.field { margin-top: 6px; }
+  .choice.selected:has(+ .inline-form) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
+  .progress { height: 10px; border-radius: 999px; background: var(--soft); overflow: hidden; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .6s ease; }
+  .progress.done > div { background: var(--ok); }
+  .model { padding: 14px 0; border-top: 1px solid var(--line); }
+  .model:first-child { border-top: none; }
+  .model .head { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .model .what { font-size: 14px; color: var(--muted); }
+  .transcript { min-height: 64px; padding: 14px 16px; border-radius: 12px; background: var(--soft); margin-top: 12px; font-size: 20px; }
+  .transcript .interim { color: var(--muted); }
+  .warnbox { padding: 14px 16px; border-radius: 12px; border: 1px solid var(--bad); color: var(--bad); margin-top: 16px; }
+  pre.log { margin: 12px 0 0; max-height: 220px; overflow: auto; font: 12px/1.45 ui-monospace, monospace; white-space: pre-wrap;
+    overflow-wrap: anywhere; background: var(--soft); padding: 12px; border-radius: 10px; }
+  .spinner { width: 22px; height: 22px; border: 3px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hidden { display: none !important; }
+  @media (max-width: 640px) { main { padding: 24px 18px 20px; } h1 { font-size: 26px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <ol class="steps" id="steps" aria-label="Setup steps"></ol>
+  <main id="main" aria-live="polite"></main>
+</div>
+<script>
+"use strict";
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const disksize = (b) => b >= 1e12 ? `${(b / 1e12).toFixed(b % 1e12 < 5e10 ? 0 : 1)} TB` : `${Math.round(b / 1e9)} GB`;
+const gb = (b) => b == null ? "?" : b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(0, Math.round(b / 1e6))} MB`;
+
+const SETUP_STEPS = [["welcome", "Welcome"], ["network", "Network"], ["timezone", "Time zone"], ["voice", "Voice"], ["models", "Models"], ["done", "Ready"]];
+const INSTALL_STEPS = [["welcome", "Welcome"], ["disk", "Disk"], ["installing", "Install"], ["finished", "Restart"]];
+const MODEL_LABELS = {
+  worker: ["Main model", "Thinks, plans and writes"],
+  intake: ["Quick model", "Reads each request as it arrives"],
+  toolcaller: ["Tool model", "Picks and fills in tools"],
+  embed: ["Memory model", "Finds related memories"]
+};
+
+let S = null;          // last /api/setup/state
+let step = null;
+const ui = { networks: null, scanning: false, selectedNet: null, hiddenNet: false, wifiError: "", connecting: false,
+  zones: null, zoneFilter: "", zone: null, voice: null, disk: null, armed: false, finishing: false, finishError: "" };
+
+async function api(method, path, body) {
+  const response = await fetch(path, { method, headers: method === "POST" ? { "Content-Type": "application/json", "X-Speck-Setup": "1" } : {},
+    body: body ? JSON.stringify(body) : method === "POST" ? "{}" : undefined });
+  const data = await response.json().catch(() => ({ ok: false, error: `HTTP ${response.status}` }));
+  if (!response.ok && data.ok !== false) data.ok = false;
+  return data;
+}
+async function refresh() {
+  try { S = await api("GET", "/api/setup/state"); } catch { /* broker restarting: keep the last state */ }
+  return S;
+}
+
+function steps() { return S?.mode === "install" ? INSTALL_STEPS : SETUP_STEPS; }
+function go(next, { remember = true } = {}) {
+  step = next;
+  if (remember && S?.mode === "setup") api("POST", "/api/setup/step", { step: next });
+  render(true);
+}
+function next() { const list = steps().map((s) => s[0]); go(list[Math.min(list.indexOf(step) + 1, list.length - 1)]); }
+function back() { const list = steps().map((s) => s[0]); go(list[Math.max(list.indexOf(step) - 1, 0)]); }
+
+function renderSteps() {
+  const list = steps();
+  const at = list.findIndex((s) => s[0] === step);
+  $("#steps").innerHTML = list.map(([id, label], i) =>
+    `<li class="${i === at ? "current" : i < at ? "done" : ""}" ${i === at ? 'aria-current="step"' : ""}>${esc(label)}</li>`).join("");
+}
+
+function render(focus = false) {
+  if (!S) return;
+  renderSteps();
+  const view = VIEWS[step] || VIEWS.welcome;
+  const active = document.activeElement;
+  const keep = active && active.id && $("#main").contains(active) ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null;
+  $("#main").innerHTML = view.html();
+  view.after?.();
+  if (focus) $("#main h1")?.focus();
+  else if (keep && document.getElementById(keep.id)) {
+    const el = document.getElementById(keep.id);
+    el.focus();
+    try { if (keep.start != null) el.setSelectionRange(keep.start, keep.end); } catch { /* not a text input */ }
+  }
+}
+
+function footer({ backable = true, primary = "Continue", primaryAction = "next", primaryDisabled = false, extra = "" } = {}) {
+  return `<div class="footer">
+    ${backable ? `<button data-do="back">Back</button>` : ""}
+    <span class="spacer"></span>${extra}
+    ${primary ? `<button class="primary" data-do="${primaryAction}" ${primaryDisabled ? "disabled" : ""}>${esc(primary)}</button>` : ""}
+  </div>`;
+}
+
+function hardwareFacts() {
+  const hw = S.hardware || {};
+  const cpu = hw.cpu || {};
+  const gpus = hw.gpus || [];
+  const gpuText = (g) => `${{ amd: "AMD", nvidia: "NVIDIA", intel: "Intel" }[g.vendor] || g.vendor} ${g.kind === "integrated" ? "integrated graphics" : "graphics card"}${g.kind !== "integrated" && g.vramBytes ? `, ${gb(g.vramBytes)}` : ""}`;
+  const rows = [
+    ["Processor", cpu.model ? `${cpu.model.replace(/\s+with .*$/i, "")}${cpu.threads ? ` · ${cpu.threads} threads` : ""}` : "–"],
+    ["Memory", cpu.memoryBytes ? `${Math.round(cpu.memoryBytes / 2 ** 30)} GB` : "–"],
+    ["Graphics", gpus.length ? gpus.map(gpuText).join("<br>") : "–"]
+  ];
+  if (hw.egpu?.present) rows.push(["External GPU", hw.egpu.model ? `Runs ${esc(hw.egpu.model)} for harder tasks` : "Being set up in the background"]);
+  return `<dl class="facts">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>`;
+}
+
+// ---------------------------------------------------------------- setup views
+const VIEWS = {
+  welcome: {
+    html() {
+      if (S.mode === "install") return `
+        <h1 tabindex="-1">Install Speck OS</h1>
+        <p class="lede">This copies Speck OS from this USB stick onto the computer's own disk. It takes a few minutes.</p>
+        ${hardwareFacts()}
+        ${footer({ backable: false })}`;
+      if (!S.needed) return `
+        <h1 tabindex="-1">Setup is complete</h1>
+        <p class="lede">You can still change the network or the time zone here.</p>
+        <div class="footer"><button data-go="network">Network</button><button data-go="timezone">Time zone</button>
+          <span class="spacer"></span><button class="primary" data-do="leave">Done</button></div>`;
+      return `
+        <h1 tabindex="-1">Hello. Let's get Speck ready.</h1>
+        <p class="lede">A few quick choices and Speck can take it from there. Everything runs on this computer: what you say to Speck stays here unless you ask it to send something.</p>
+        ${hardwareFacts()}
+        ${footer({ backable: false, primary: "Start" })}`;
+    }
+  },
+
+  network: {
+    html() {
+      const net = S.network || {};
+      const modelsMissing = (S.models || []).some((m) => m.status !== "ready");
+      const connected = (net.devices || []).filter((d) => d.state === "connected");
+      const statusText = !net.available ? "Network settings aren't available on this system."
+        : net.online ? `Connected${connected.length ? ` to ${esc(connected.map((d) => d.connection || d.device).join(", "))}` : ""}`
+        : connected.length ? `Connected to ${esc(connected[0].connection)}, but the internet isn't reachable` : "Not connected";
+      const dotClass = net.online ? "ok" : connected.length ? "warn" : "bad";
+      let wifi = "";
+      if (net.wifi) {
+        const nets = ui.networks;
+        wifi = `<div class="row" style="justify-content:space-between;margin:20px 0 10px"><strong>Wi-Fi networks</strong>
+          <button class="link" data-do="scan" ${ui.scanning ? "disabled" : ""}>${ui.scanning ? "Looking…" : "Refresh"}</button></div>
+          <div class="list" style="max-height:none" role="listbox" aria-label="Wi-Fi networks">
+          ${nets == null ? `<div class="row"><span class="spinner"></span> Looking for networks…</div>`
+            : !nets.length ? `<p class="note">No networks found.</p>`
+            : nets.map((n, i) => wifiChoice(n, i) + (!ui.hiddenNet && n.ssid === ui.selectedNet ? wifiForm() : "")).join("")}
+          <button class="choice ${ui.hiddenNet ? "selected" : ""}" data-net="hidden"><span class="grow">Other network…<span class="sub">A network that doesn't show its name</span></span></button>
+          ${ui.hiddenNet ? wifiForm() : ""}
+          </div>`;
+      } else if (net.available) {
+        wifi = `<p class="note">No Wi-Fi on this computer. Plug in an Ethernet cable and it connects by itself.</p>`;
+      }
+      return `
+        <h1 tabindex="-1">Connect to the internet</h1>
+        <p class="lede">${modelsMissing ? "Speck needs the internet once, to download its models (about 5 GB). After that it works offline." : "Speck has everything it needs to work offline. The internet lets it update itself and use online tools."}</p>
+        <div class="status"><span class="dot ${dotClass}"></span><span>${statusText}</span></div>
+        ${wifi}
+        ${footer({ primary: net.online ? "Continue" : "Skip for now" })}`;
+    },
+    after() {
+      if (S.network?.wifi && ui.networks == null && !ui.scanning) scan();
+      const field = $("#wifiName") || $("#wifiPassword");
+      if (field && !document.activeElement?.matches("input")) field.focus();
+    }
+  },
+
+  timezone: {
+    html() {
+      const zones = ui.zones || [];
+      const selected = ui.zone ?? S.timezone;
+      const q = ui.zoneFilter.trim().toLowerCase().replace(/\s+/g, "_");
+      const shown = (q ? zones.filter((z) => z.toLowerCase().includes(q)) : zones).slice(0, 200);
+      let time = "";
+      try { time = new Date().toLocaleTimeString([], { timeZone: selected, hour: "numeric", minute: "2-digit" }); } catch { /* unknown zone */ }
+      return `
+        <h1 tabindex="-1">Where are you?</h1>
+        <p class="lede">Speck uses your time zone for reminders and schedules.</p>
+        <div class="status"><span class="dot ok"></span><span><strong>${esc(selected.replace(/_/g, " "))}</strong>${time ? ` · ${esc(time)} now` : ""}</span></div>
+        <label class="field" for="zoneSearch">Search for a city or region</label>
+        <input type="search" id="zoneSearch" value="${esc(ui.zoneFilter)}" placeholder="e.g. Melbourne, London, New York" autocomplete="off">
+        <div class="list" style="margin-top:12px;max-height:36vh" role="listbox" aria-label="Time zones">
+          ${ui.zones == null ? `<div class="row"><span class="spinner"></span> Loading…</div>`
+            : shown.map((z) => `<button class="choice ${z === selected ? "selected" : ""}" role="option" aria-selected="${z === selected}" data-zone="${esc(z)}"><span class="grow">${esc(z.split("/").pop().replace(/_/g, " "))}<span class="sub">${esc(z.replace(/_/g, " "))}</span></span></button>`).join("")
+              || `<p class="note">No match.</p>`}
+        </div>
+        ${footer({ primaryAction: "saveZone" })}`;
+    },
+    after() {
+      if (ui.zones == null) api("GET", "/api/setup/timezones").then((r) => { ui.zones = r.zones || []; render(); });
+      const input = $("#zoneSearch");
+      input.addEventListener("input", () => { ui.zoneFilter = input.value; render(); });
+    }
+  },
+
+  voice: {
+    html() {
+      const v = S.voice || {};
+      const local = Boolean(window.__speckVoiceLocal) && v.available;
+      const chosen = ui.voice ?? v.defaultVoice;
+      if (!local) return `
+        <h1 tabindex="-1">Voice</h1>
+        <p class="lede">The offline voice service isn't running yet, so this step can wait. Speck will use its default voice; you can change it later in System → Voice.</p>
+        ${footer({})}`;
+      return `
+        <h1 tabindex="-1">Choose Speck's voice</h1>
+        <p class="lede">Speech is recognised and spoken on this computer. Say "Hey Speck" any time to talk to it.</p>
+        <div class="list" role="radiogroup" aria-label="Voices" style="max-height:34vh">
+          ${v.voices.map((voice) => `<div class="choice ${voice.id === chosen ? "selected" : ""}" role="radio" tabindex="0" aria-checked="${voice.id === chosen}" data-voice="${esc(voice.id)}">
+            <span class="grow">${esc(voice.name.replace(/\s*\(.*\)$/, ""))}<span class="sub">${esc(voiceNote(voice))}</span></span>
+            <button data-play="${esc(voice.id)}" aria-label="Play ${esc(voice.name)}">Play</button></div>`).join("")}
+        </div>
+        <div style="margin-top:24px"><div class="row" style="justify-content:space-between"><strong>Check the microphone</strong>
+          <button id="micButton" data-do="mic">${mic.on ? "Stop" : "Test microphone"}</button></div>
+          <div class="transcript" id="transcript">${mic.text || mic.interim ? `${esc(mic.text)} <span class="interim">${esc(mic.interim)}</span>` : `<span class="interim">${mic.error ? esc(mic.error) : "Press Test microphone and say something."}</span>`}</div></div>
+        ${footer({ primaryAction: "saveVoice" })}`;
+    }
+  },
+
+  models: {
+    html() {
+      const models = S.models || [];
+      const ready = models.filter((m) => m.status === "ready").length;
+      const all = models.length > 0 && ready === models.length;
+      const offline = !S.network?.online && models.some((m) => m.status === "waiting-network");
+      return `
+        <h1 tabindex="-1">${all ? "Models are ready" : "Getting Speck's models"}</h1>
+        <p class="lede">${all ? "Everything Speck needs to think is on this computer." : offline ? "Connect to the internet to download them. Speck can't answer until the main model is here." : "This can take a while on the first start. You can carry on: the downloads continue in the background."}</p>
+        <div>${sortModels(models).map(modelRow).join("") || `<p class="note">No models are configured.</p>`}</div>
+        ${footer({ primary: all ? "Continue" : "Continue anyway", extra: offline ? `<button data-go="network">Connect</button>` : "" })}`;
+    }
+  },
+
+  done: {
+    html() {
+      if (ui.finishing) return `
+        <h1 tabindex="-1">Starting Speck…</h1>
+        <div class="status"><span class="spinner"></span><span>${ui.finishError ? esc(ui.finishError) : "Opening Speck. This only takes a moment."}</span></div>`;
+      return `
+        <h1 tabindex="-1">Speck is ready</h1>
+        <p class="lede">A few things worth knowing:</p>
+        <dl class="facts">
+          <dt>Talk</dt><dd>Say "Hey Speck", or type.</dd>
+          <dt>Looks after itself</dt><dd>Speck installs updates, sets up new hardware and repairs the system on its own. Every change it makes can be undone.</dd>
+          <dt>If something breaks</dt><dd>A recovery screen appears by itself, with a way back.</dd>
+          <dt>Add abilities</dt><dd>Plugins in Speck's System menu add new skills.</dd>
+        </dl>
+        ${footer({ primary: "Start Speck", primaryAction: "finish" })}`;
+    }
+  },
+
+  // ---------------------------------------------------------------- installer views
+  disk: {
+    html() {
+      const d = S.disks || {};
+      const list = d.disks || [];
+      const chosen = list.find((x) => x.path === ui.disk);
+      return `
+        <h1 tabindex="-1">Choose where to install</h1>
+        <p class="lede">Pick the computer's internal disk. <strong>Everything on it will be erased.</strong></p>
+        ${d.error ? `<p class="error">${esc(d.error)}</p>` : ""}
+        <div class="list" role="radiogroup" aria-label="Disks">
+          ${list.map((x) => `<button class="choice ${x.path === ui.disk ? "selected" : ""}" role="radio" aria-checked="${x.path === ui.disk}" data-disk="${esc(x.path)}" ${x.eligible ? "" : "disabled"}>
+            <span class="grow">${esc(x.model)} · ${disksize(x.sizeBytes)}
+              <span class="sub">${esc([x.transport?.toUpperCase(), x.removable ? "removable" : "internal", x.path].filter(Boolean).join(" · "))}${x.reason ? ` · ${esc(x.reason)}` : ""}
+              ${x.partitions.length ? `<br>Now holds: ${esc(x.partitions.map((p) => p.label || p.fstype || "data").filter((v, i, a) => a.indexOf(v) === i).join(", "))}` : ""}</span></span></button>`).join("")
+            || `<p class="note">No disk large enough was found.</p>`}
+        </div>
+        ${chosen ? `<div class="warnbox">${ui.armed ? `Press again to erase <strong>${esc(chosen.model)}</strong> (${disksize(chosen.sizeBytes)}) and install. This can't be undone.` : `Installing erases everything on ${esc(chosen.model)}.`}</div>` : ""}
+        ${footer({ primary: ui.armed ? "Erase and install" : "Install", primaryAction: "install", primaryDisabled: !chosen })}`;
+    },
+    after() {
+      // The primary button turns into the danger button once armed.
+      const button = $('[data-do="install"]');
+      if (button && ui.armed) { button.classList.remove("primary"); button.classList.add("danger"); }
+    }
+  },
+
+  installing: {
+    html() {
+      const job = S.install || { state: "running", percent: 0, message: "Starting", log: [] };
+      const failed = job.state === "failed";
+      return `
+        <h1 tabindex="-1">${failed ? "The install didn't finish" : "Installing Speck OS"}</h1>
+        <p class="lede">${failed ? "Nothing on this USB stick was changed. Check the details below, then try again." : `Copying onto ${esc(job.model || job.disk || "the disk")}. Keep the USB stick in until it's done.`}</p>
+        <div class="progress ${job.state === "done" ? "done" : ""}"><div style="width:${job.percent || 0}%"></div></div>
+        <p>${esc(job.message || "")}</p>
+        ${failed ? `<pre class="log">${esc((job.log || []).join("\n"))}</pre>` : `<details><summary class="note">Details</summary><pre class="log">${esc((job.log || []).join("\n"))}</pre></details>`}
+        ${failed ? footer({ primary: "Try again", primaryAction: "retryInstall" }) : ""}`;
+    }
+  },
+
+  finished: {
+    html() {
+      return `
+        <h1 tabindex="-1">Installed</h1>
+        <p class="lede">Remove the USB stick, then restart. The computer starts into Speck, which walks you through the last few choices.</p>
+        ${footer({ backable: false, primary: "Restart", primaryAction: "reboot" })}`;
+    }
+  }
+};
+
+function voiceNote(voice) {
+  if (voice.id.startsWith("kitten")) return "Quick to answer";
+  if (voice.id.startsWith("kokoro")) return "More natural, a little slower to start";
+  return voice.lang;
+}
+
+function wifiChoice(n, i) {
+  const lit = n.signal >= 75 ? 4 : n.signal >= 50 ? 3 : n.signal >= 25 ? 2 : 1;
+  const bars = [6, 10, 14, 18].map((h, k) => `<i class="${k < lit ? "on" : ""}" style="height:${h}px"></i>`).join("");
+  const selected = !ui.hiddenNet && ui.selectedNet === n.ssid;
+  return `<button class="choice ${selected ? "selected" : ""}" role="option" aria-selected="${selected}" data-net="${i}">
+    <span class="bars" aria-hidden="true">${bars}</span>
+    <span class="grow">${esc(n.ssid)}<span class="sub">${n.connected ? "Connected" : n.security ? "Secured" : "Open"}</span></span>
+    ${n.security ? `<span aria-label="secured">🔒</span>` : ""}</button>`;
+}
+
+function wifiForm() {
+  const net = (ui.networks || []).find((n) => n.ssid === ui.selectedNet);
+  if (!ui.hiddenNet && (!net || net.connected)) return ui.wifiError ? `<p class="error">${esc(ui.wifiError)}</p>` : "";
+  const needsPassword = ui.hiddenNet || Boolean(net.security);
+  return `<form id="wifiForm" class="inline-form">
+    ${ui.hiddenNet ? `<label class="field" for="wifiName">Network name</label><input type="text" id="wifiName" autocomplete="off" spellcheck="false">` : ""}
+    ${needsPassword ? `<label class="field" for="wifiPassword">Password${ui.hiddenNet ? " (leave empty for an open network)" : ` for ${esc(net.ssid)}`}</label>
+      <div class="row"><input type="password" id="wifiPassword" autocomplete="off" spellcheck="false"><button type="button" data-do="showPassword">Show</button></div>` : ""}
+    <div class="row" style="margin-top:12px"><button class="primary" type="submit" ${ui.connecting ? "disabled" : ""}>${ui.connecting ? "Connecting…" : "Connect"}</button>
+      ${ui.connecting ? `<span class="spinner"></span>` : ""}</div>
+    ${ui.wifiError ? `<p class="error" role="alert">${esc(ui.wifiError)}</p>` : ""}
+  </form>`;
+}
+
+// Main model first, in the order the labels are listed; anything else after.
+function sortModels(models) {
+  const order = Object.keys(MODEL_LABELS);
+  const rank = (m) => (order.includes(m.name) ? order.indexOf(m.name) : order.length);
+  return models.slice().sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+}
+
+function modelRow(m) {
+  const [label, what] = MODEL_LABELS[m.name] || [m.name, m.model];
+  const pct = m.status === "ready" || m.status === "loading" ? 100 : m.expectedBytes ? Math.min(99, Math.floor(m.bytes / m.expectedBytes * 100)) : 0;
+  const text = {
+    ready: "Ready",
+    loading: "Loading…",
+    downloading: m.expectedBytes ? `${gb(m.bytes)} of ${gb(m.expectedBytes)}` : `${gb(m.bytes)} downloaded`,
+    "waiting-network": "Waiting for the internet",
+    starting: "Starting…",
+    failed: "Couldn't start; Speck will keep trying"
+  }[m.status] || m.status;
+  return `<div class="model"><div class="head"><div>${esc(label)}<div class="what">${esc(what)}</div></div>
+    <div class="${m.status === "ready" ? "ok" : m.status === "failed" ? "error" : ""}" style="text-align:right;white-space:nowrap">${esc(text)}</div></div>
+    <div class="progress ${m.status === "ready" ? "done" : ""}"><div style="width:${pct}%"></div></div></div>`;
+}
+
+// ---------------------------------------------------------------- actions
+async function scan() {
+  ui.scanning = true; render();
+  const r = await api("POST", "/api/setup/wifi/scan");
+  ui.scanning = false;
+  ui.networks = r.networks || [];
+  if (r.ok === false) ui.wifiError = r.error;
+  render();
+}
+
+async function connect() {
+  const name = ui.hiddenNet ? $("#wifiName")?.value.trim() : ui.selectedNet;
+  const password = $("#wifiPassword")?.value ?? "";
+  if (!name) { ui.wifiError = "Type the network name."; render(); return; }
+  const net = (ui.networks || []).find((n) => n.ssid === name);
+  ui.connecting = true; ui.wifiError = ""; render();
+  const r = await api("POST", "/api/setup/wifi/connect", { ssid: name, password, hidden: ui.hiddenNet, security: net?.security });
+  ui.connecting = false;
+  if (r.ok) {
+    ui.hiddenNet = false; ui.selectedNet = null;
+    await refresh();
+    ui.networks = null;
+  } else {
+    ui.wifiError = r.error || "Couldn't connect.";
+  }
+  render();
+  if (!r.ok) $("#wifiPassword")?.focus();
+}
+
+// Microphone test through the page's (offline) speech recognition.
+const mic = { on: false, text: "", interim: "", error: "", rec: null, timer: null };
+function toggleMic() {
+  if (mic.on) { mic.rec?.stop(); return; }
+  const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Rec) { mic.error = "Speech recognition isn't available."; render(); return; }
+  const rec = new Rec();
+  rec.continuous = true; rec.interimResults = true; rec.lang = "en-US";
+  Object.assign(mic, { on: true, text: "", interim: "", error: "", rec });
+  rec.onresult = (event) => {
+    let finals = "", interim = "";
+    for (let i = 0; i < event.results.length; i++) {
+      const r = event.results[i];
+      if (r.isFinal) finals += r[0].transcript + " "; else interim += r[0].transcript;
+    }
+    mic.text = finals.trim(); mic.interim = interim;
+    updateTranscript();
+  };
+  rec.onerror = (event) => { mic.error = event.error === "not-allowed" ? "The microphone isn't allowed." : event.error === "no-speech" ? "Didn't hear anything." : `Microphone problem: ${event.error}`; };
+  rec.onend = () => { mic.on = false; clearTimeout(mic.timer); render(); };
+  rec.start();
+  mic.timer = setTimeout(() => rec.stop(), 12000);
+  render();
+}
+function updateTranscript() {
+  const box = $("#transcript");
+  if (box) box.innerHTML = `${esc(mic.text)} <span class="interim">${esc(mic.interim)}</span>`;
+}
+
+function playVoice(id) {
+  const voice = speechSynthesis.getVoices().find((v) => v.voiceURI === `speck-voice:${id}`);
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance("Hi, I'm Speck. This is how I'll sound when I talk to you.");
+  if (voice) u.voice = voice;
+  speechSynthesis.speak(u);
+}
+
+async function finish() {
+  ui.finishing = true; ui.finishError = ""; render(true);
+  const r = await api("POST", "/api/setup/complete");
+  if (r.ok === false) { ui.finishError = r.error; render(); return; }
+  if (!r.speckHealthy) ui.finishError = "Speck is taking longer than usual to start. The screen switches as soon as it's up.";
+  render();
+  // In the kiosk, the launcher switches to Speck within a few seconds. Elsewhere, go there ourselves.
+  setTimeout(() => { location.href = "http://127.0.0.1:4310/"; }, 15000);
+}
+
+async function startInstall() {
+  const r = await api("POST", "/api/setup/install", { disk: ui.disk });
+  ui.armed = false;
+  if (r.ok === false) { S.disks = { ...(S.disks || {}), error: r.error }; render(); return; }
+  S.install = r.job;
+  go("installing");
+}
+
+const ACTIONS = {
+  next, back,
+  leave: () => { location.href = "/"; },
+  scan,
+  showPassword: () => { const pw = $("#wifiPassword"); const b = $('[data-do="showPassword"]'); pw.type = pw.type === "password" ? "text" : "password"; b.textContent = pw.type === "password" ? "Show" : "Hide"; pw.focus(); },
+  saveZone: async () => {
+    const zone = ui.zone ?? S.timezone;
+    if (zone !== S.timezone) {
+      const r = await api("POST", "/api/setup/timezone", { zone });
+      if (r.ok === false) { alert(r.error); return; }
+      S.timezone = zone;
+    }
+    next();
+  },
+  saveVoice: async () => {
+    mic.rec?.stop();
+    const id = ui.voice;
+    if (id && id !== S.voice?.defaultVoice) {
+      const r = await api("POST", "/api/setup/voice", { voice: id });
+      if (r.ok !== false) S.voice.defaultVoice = id;
+    }
+    next();
+  },
+  mic: toggleMic,
+  finish,
+  install: () => {
+    if (!ui.armed) { ui.armed = true; render(); clearTimeout(ui.armTimer); ui.armTimer = setTimeout(() => { ui.armed = false; render(); }, 8000); return; }
+    startInstall();
+  },
+  retryInstall: () => { S.install = null; go("disk"); },
+  reboot: async () => { await api("POST", "/api/setup/reboot"); $("#main").innerHTML = `<h1 tabindex="-1">Restarting…</h1><p class="lede">Remove the USB stick now if you haven't.</p>`; }
+};
+
+document.addEventListener("click", (event) => {
+  const t = event.target.closest("[data-do],[data-go],[data-net],[data-zone],[data-voice],[data-play],[data-disk]");
+  if (!t || t.disabled) return;
+  if (t.dataset.play) { event.stopPropagation(); playVoice(t.dataset.play); return; }
+  if (t.dataset.do) return void ACTIONS[t.dataset.do]?.();
+  if (t.dataset.go) return void go(t.dataset.go);
+  if (t.dataset.net) {
+    ui.wifiError = "";
+    if (t.dataset.net === "hidden") { ui.hiddenNet = true; ui.selectedNet = null; }
+    else {
+      const n = ui.networks[Number(t.dataset.net)];
+      ui.hiddenNet = false; ui.selectedNet = n.ssid;
+      if (!n.security && !n.connected) { render(); connect(); return; }
+    }
+    render();
+    ($("#wifiName") || $("#wifiPassword"))?.focus();
+    return;
+  }
+  if (t.dataset.zone) { ui.zone = t.dataset.zone; render(); return; }
+  if (t.dataset.voice) { ui.voice = t.dataset.voice; render(); playVoice(t.dataset.voice); return; }
+  if (t.dataset.disk) { ui.disk = t.dataset.disk; ui.armed = false; render(); }
+});
+document.addEventListener("keydown", (event) => {
+  const t = event.target.closest?.("[data-voice]");
+  if (t && (event.key === "Enter" || event.key === " ") && event.target === t) { event.preventDefault(); t.click(); }
+});
+document.addEventListener("submit", (event) => { event.preventDefault(); connect(); });
+
+// Live views refresh while they're open; others only on navigation.
+setInterval(async () => {
+  if (!["models", "network", "installing", "done", "disk"].includes(step)) return;
+  if (step === "network" && (ui.connecting || document.activeElement?.matches("input"))) return;
+  if (step === "done" && !ui.finishing) return;
+  await refresh();
+  if (step === "installing" && S.install?.state === "done") return go("finished");
+  if (step !== "done") render();
+}, 2500);
+
+(async function start() {
+  while (!(await refresh())) await new Promise((r) => setTimeout(r, 1500));
+  if (S.mode === "install") step = S.install?.state === "running" ? "installing" : S.install?.state === "done" ? "finished" : "welcome";
+  else if (!S.needed) step = location.hash.slice(1) || "welcome";
+  else step = SETUP_STEPS.some(([id]) => id === S.step) ? S.step : "welcome";
+  if (S.voice?.defaultVoice) ui.voice = S.voice.defaultVoice;
+  // Local voices arrive asynchronously; redraw the voice step when they do.
+  try { speechSynthesis.addEventListener?.("voiceschanged", () => step === "voice" && render()); } catch { /* no speech */ }
+  render(true);
+})();
+</script>
+</body>
+</html>
